@@ -7,6 +7,8 @@ from PIL import Image
 from constants import Constants as const
 from datasets.data_factory import get_flickr8k
 from models.model import BasicCaptioner
+
+import utils
 import train as trainer
 
 
@@ -61,12 +63,18 @@ def build_and_train_model():
     cross_entropy = nn.CrossEntropyLoss(ignore_index=dataset.vocab.stoi["<PAD>"])
     adam_optimiser = optim.Adam(basic_caption_model.parameters(), lr=learning_rate)
 
-    trainer.train(model=basic_caption_model, 
-                  optimiser=adam_optimiser, 
-                  loss_function=cross_entropy, 
-                  data_loader=train_dataloader, 
-                  epoch_count=epochs)
+    basic_caption_model, adam_optimiser, epoch, loss = utils.load_model_for_training(
+                                                        basic_caption_model, 
+                                                        adam_optimiser, 
+                                                        'trained_model')
 
+    trained, epoch, loss = trainer.train(model=basic_caption_model, 
+                                        optimiser=adam_optimiser, 
+                                        loss_function=cross_entropy, 
+                                        data_loader=train_dataloader, 
+                                        epoch_count=epochs)
+
+    utils.save_model_for_training(trained, adam_optimiser, epoch, loss, save_name='trained_model')
     
 
     

@@ -35,4 +35,4 @@ def train(model: nn.Module,
         
         print(f"Loss for epoch {epoch}: {loss}")
     
-    return model
+    return model, epoch, loss
