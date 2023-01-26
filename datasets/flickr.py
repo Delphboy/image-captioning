@@ -3,11 +3,12 @@ import os
 import pandas as pd
 import spacy
 import torch
+import torchvision.transforms as transforms
 from PIL import Image
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import Dataset
 
-# Download with: python -m spacy download en
+
 spacy_eng = spacy.load("en_core_web_sm")
 
 
@@ -51,7 +52,13 @@ class Flickr8kVocabulary:
 
 
 class Flickr8kDataset(Dataset):
-    def __init__(self, root_dir, captions_file, transform=None, freq_threshold=5):
+    def __init__(self, 
+                root_dir:str, 
+                captions_file: str, 
+                transform:transforms.Compose=None, 
+                freq_threshold: int=5):
+        
+        
         self.root_dir = root_dir
         self.df = pd.read_csv(captions_file)
         self.transform = transform
@@ -82,7 +89,7 @@ class Flickr8kDataset(Dataset):
         return img, torch.tensor(numericalized_caption)
 
 
-# TODO: Give this a better name
+# TODO: Figure out what this does & give it a better name
 class MyCollate:
     def __init__(self, pad_idx):
         self.pad_idx = pad_idx
