@@ -37,7 +37,7 @@ def get_flickr8k_data(
 
     test_loader = DataLoader(
         dataset=test_dataset,
-        batch_size=batch_size,
+        batch_size=1,
         num_workers=num_workers,
         shuffle=False,
         pin_memory=pin_memory,
