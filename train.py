@@ -17,21 +17,26 @@ def train(model: nn.Module,
     step = 0
     model.train()
 
+    # data_loader.batch_size != len(data_loader)
+    iterations = len(data_loader)
+
     for epoch in range(epoch_count):
-        for idx, (imgs, captions) in enumerate(data_loader):
-            imgs = imgs.to(const.DEVICE)
-            captions = captions.to(const.DEVICE)
-            
-            outputs = model(imgs, captions[:-1])
-            loss = loss_function(
-                outputs.reshape(-1, outputs.shape[2]), captions.reshape(-1)
-            )
+        for _ in range(iterations):
+            for idx, (imgs, captions) in enumerate(data_loader):
+                imgs = imgs.to(const.DEVICE)
+                captions = captions.to(const.DEVICE)
+                
+                outputs = model(imgs, captions[:-1])
+                loss = loss_function(
+                    outputs.reshape(-1, outputs.shape[2]), captions.reshape(-1)
+                )
 
-            step += 1
-
-            optimiser.zero_grad()
-            loss.backward(loss)
-            optimiser.step()
+                step += 1
+                
+                # FIXME: I think there's a subtle bug here. Model weights should be updated after batch
+                optimiser.zero_grad()
+                loss.backward(loss)
+                optimiser.step()
         
         print(f"Loss for epoch {epoch}: {loss}")
     
