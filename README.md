@@ -20,6 +20,8 @@ module load cuda/10.2-cudnn8.3.0
 
 ⚠️ If you get an error about the `module` command not being available, run `source /etc/profile.d/modules.sh`. If you add that to your `.bashrc` the error should go away permanently.
 
+Specific `torch` install command: `pip install torch==1.12.1+cu102 torchvision==0.13.1+cu102 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu102`
+
 ### Data Set
 
 Currently, the code runs on the Flickr8k data set. The main download link has died, so download with the following commands
