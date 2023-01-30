@@ -8,7 +8,6 @@ from torchvision.models import ResNet101_Weights
 from torch.autograd import Variable
 from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2, FasterRCNN_ResNet50_FPN_V2_Weights
 
-
 # class FasterRcnn(nn.Module):
 #     def __init__(self, embedding_size):
 #         super().__init__()
@@ -31,6 +30,27 @@ from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2, FasterRCNN_
 #         return self.dropout(self.relu(features))
 
 
+
+class Resnet152(nn.Module):
+    def __init__(self, embed_size):
+        """Load the pretrained ResNet-152 and replace top fc layer."""
+        super(Resnet152, self).__init__()
+        resnet = models.resnet152(pretrained=True)
+        modules = list(resnet.children())[:-1]      # delete the last fc layer.
+        self.resnet = nn.Sequential(*modules)
+        self.linear = nn.Linear(resnet.fc.in_features, embed_size)
+        self.bn = nn.BatchNorm1d(embed_size, momentum=0.01)
+        
+    def forward(self, images):
+        """Extract feature vectors from input images."""
+        with torch.no_grad():
+            features = self.resnet(images)
+        features = features.reshape(features.size(0), -1)
+        features = self.bn(self.linear(features))
+        return features
+
+
+
 class InceptionV3(nn.Module):
     def __init__(self, embed_size, train_CNN=False):
         super(InceptionV3, self).__init__()
@@ -46,4 +66,6 @@ class InceptionV3(nn.Module):
 
     def forward(self, images):
         features = self.inception(images)
-        return self.dropout(self.relu(features[0]))
+        return_features = self.dropout(self.relu(features[0]))
+
+        return return_features

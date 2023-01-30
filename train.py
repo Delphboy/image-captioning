@@ -1,11 +1,12 @@
 from typing import Any
 
-from constants import Constants as const
-from torch.utils.data import DataLoader
-
-import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.nn.utils.rnn import pack_padded_sequence
+from torch.utils.data import DataLoader
+
+from constants import Constants as const
+from their_code.utils import print_examples
 
 
 def train(model: nn.Module,
@@ -14,30 +15,28 @@ def train(model: nn.Module,
           data_loader: DataLoader,
           epoch_count: int=10):
     
-    step = 0
     model.train()
 
-    # data_loader.batch_size != len(data_loader)
-    iterations = len(data_loader)
-
     for epoch in range(epoch_count):
-        for _ in range(iterations):
-            for idx, (imgs, captions) in enumerate(data_loader):
-                imgs = imgs.to(const.DEVICE)
-                captions = captions.to(const.DEVICE)
-                
-                outputs = model(imgs, captions[:-1])
-                loss = loss_function(
-                    outputs.reshape(-1, outputs.shape[2]), captions.reshape(-1)
-                )
+        for idx, (imgs, captions, lengths) in enumerate(data_loader):
+            images = imgs.to(const.DEVICE)
+            captions = captions.to(const.DEVICE)
+            targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
+            
+            outputs = model(images, captions, lengths)
+            
+            loss = loss_function(outputs, targets)
+            model.zero_grad()
+            loss.backward()
+            
+            optimiser.step()
 
-                step += 1
-                
-                # FIXME: I think there's a subtle bug here. Model weights should be updated after batch
-                optimiser.zero_grad()
-                loss.backward(loss)
-                optimiser.step()
+            if idx == 0:
+                model.eval()                
+                print_examples(model, const.DEVICE, data_loader.dataset.dataset)
+                model.train()
         
-        print(f"Loss for epoch {epoch}: {loss}")
+            print(f"Loss for epoch {epoch+1}/{epoch_count} | {idx+1}/{len(data_loader)} | {loss}")
+            
     
     return model, epoch, loss

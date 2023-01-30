@@ -4,10 +4,9 @@ import pandas as pd
 import spacy
 import torch
 import torchvision.transforms as transforms
-from PIL import Image
-from torch.nn.utils.rnn import pad_sequence
-from torch.utils.data import Dataset
 
+from PIL import Image
+from torch.utils.data import Dataset
 
 spacy_eng = spacy.load("en_core_web_sm")
 
@@ -89,16 +88,22 @@ class Flickr8kDataset(Dataset):
         return img, torch.tensor(numericalized_caption)
 
 
-# TODO: Figure out what this does & give it a better name
-class MyCollate:
+class Flickr8kBatcher:
     def __init__(self, pad_idx):
         self.pad_idx = pad_idx
 
-    def __call__(self, batch):
-        imgs = [item[0].unsqueeze(0) for item in batch]
-        imgs = torch.cat(imgs, dim=0)
-        targets = [item[1] for item in batch]
-        targets = pad_sequence(targets, batch_first=False, padding_value=self.pad_idx)
 
-        return imgs, targets
+    def __call__(self, data):
+        data.sort(key=lambda x: len(x[1]), reverse=True)
+        images, captions = zip(*data)
 
+        # Merge images (from tuple of 3D tensor to 4D tensor).
+        images = torch.stack(images, 0)
+
+        # Merge captions (from tuple of 1D tensor to 2D tensor).
+        lengths = [len(cap) for cap in captions]
+        targets = torch.zeros(len(captions), max(lengths)).long()
+        for i, cap in enumerate(captions):
+            end = lengths[i]
+            targets[i, :end] = cap[:end]  
+        return images, targets, lengths

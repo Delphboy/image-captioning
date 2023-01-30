@@ -1,9 +1,9 @@
 from typing import Tuple
+
 import torch
-import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, Dataset
 
-from datasets.flickr import Flickr8kDataset, MyCollate
+from datasets.flickr import Flickr8kBatcher, Flickr8kDataset
 
 
 def get_flickr8k_data(
@@ -32,7 +32,7 @@ def get_flickr8k_data(
         num_workers=num_workers,
         shuffle=shuffle,
         pin_memory=pin_memory,
-        collate_fn=MyCollate(pad_idx=pad_idx),
+        collate_fn=Flickr8kBatcher(pad_idx=pad_idx),
     )
 
     test_loader = DataLoader(
@@ -41,7 +41,7 @@ def get_flickr8k_data(
         num_workers=num_workers,
         shuffle=False,
         pin_memory=pin_memory,
-        collate_fn=MyCollate(pad_idx=pad_idx),
+        collate_fn=Flickr8kBatcher(pad_idx=pad_idx),
     )
 
     return train_loader, test_loader, dataset
