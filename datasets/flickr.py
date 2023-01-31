@@ -64,6 +64,9 @@ class Flickr8kDataset(Dataset):
 
         self.imgs = self.df["image"]
         self.captions = self.df["caption"]
+        
+        self.grouped_captions = pd.read_csv(captions_file, sep=',', header=None, names=['image', 'caption'])
+        self.grouped_captions = self.grouped_captions.groupby('image')['caption'].apply(list).reset_index()
 
         self.vocab = Flickr8kVocabulary(freq_threshold)
         self.vocab.build_vocabulary(self.captions.tolist())
@@ -86,6 +89,10 @@ class Flickr8kDataset(Dataset):
         numericalized_caption.append(self.vocab.stoi["<EOS>"])
 
         return img, torch.tensor(numericalized_caption)
+
+
+    def get_grouped_captions(self, image_id: str):
+        return self.grouped_captions.loc[self.grouped_captions['image'] == image_id]['caption'].item()
 
 
 class Flickr8kBatcher:

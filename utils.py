@@ -47,3 +47,6 @@ def load_model(model: nn.Module,
     loss = checkpoint['loss']
 
     return model, optimiser, epoch, loss
+
+
+# TODO: Add a function that converts numericalised captions back into English

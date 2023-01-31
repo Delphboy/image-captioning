@@ -5,7 +5,9 @@ from torch.utils.data import DataLoader
 from datasets.flickr import Flickr8kVocabulary
 from metrics.caption_metrics import bleu_score, meteor_score
 from torch.utils.data import DataLoader, Dataset
+from tqdm import tqdm
 
+# TODO: I should probably go in utils.py
 def caption_array_to_string(array: list[str]) -> str:
     caption = ""
     for i in range(1, len(array)):
@@ -24,22 +26,24 @@ def caption_array_to_string(array: list[str]) -> str:
 def evaluate_caption_model(model: nn.Module,
                            loader: DataLoader,
                            dataset: Dataset):
-    ground_truths = []
-    predictions = []
+    references = []
+    hypotheses = []
 
-    for idx, (imgs, captions, lengths) in enumerate(loader):
-        print(f"Processing {idx+1}/{len(loader)}")
+    print("Generating Captions for Test Set")
+    for idx, (imgs, _, _) in tqdm(enumerate(loader), total=len(loader), leave=False):
+        # print(f"Processing {idx+1}/{len(loader)}")
         imgs = imgs.to(const.DEVICE)
-        captions = captions.to(const.DEVICE)[0]
 
-        
-        predict = model.caption_image(imgs, dataset.vocab)
-        
-        # print(f"Predicted: {caption_array_to_string(predict)}")       
-        ground_truth = [dataset.vocab.itos[i.item()] for i in captions]
-        # print(f"Should be: {ground_truth}")
-        
-        predictions.append(caption_array_to_string(predict))
-        ground_truths.append(caption_array_to_string(ground_truth))
+        index = list(loader.dataset.indices)[idx]
+        img_id = dataset.imgs[index]
+        reference_captions = dataset.get_grouped_captions(img_id)
 
-    print(bleu_score(ground_truths, predictions))
+        prediction = model.caption_image(imgs, dataset.vocab)
+        candidate_caption = caption_array_to_string(prediction)
+        
+        hypotheses.append(candidate_caption)
+        references.append(reference_captions)
+        
+
+    print("Calculating BLEU Score")
+    print(bleu_score(references, hypotheses))

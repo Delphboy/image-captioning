@@ -6,7 +6,6 @@ from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import DataLoader
 
 from constants import Constants as const
-from their_code.utils import print_examples
 
 
 def train(model: nn.Module,
@@ -30,11 +29,6 @@ def train(model: nn.Module,
             loss.backward()
             
             optimiser.step()
-
-            if idx == 0:
-                model.eval()                
-                print_examples(model, const.DEVICE, data_loader.dataset.dataset)
-                model.train()
         
             print(f"Loss for epoch {epoch+1}/{epoch_count} | {idx+1}/{len(data_loader)} | {loss}")
             

@@ -62,7 +62,7 @@ def load_and_evaluate(model_name: str):
         transform=transform,
         train_ratio=0.8,
         batch_size=32,
-        num_workers=2,
+        num_workers=16,
         shuffle=False,
         pin_memory=True
     )
@@ -109,7 +109,7 @@ def build_and_train_model() -> None:
     num_layers = 1
     vocab_size = len(dataset.vocab)
     learning_rate = 3e-4
-    epochs=5
+    epochs=50
 
     is_cnn_training = False
 
@@ -136,11 +136,11 @@ def build_and_train_model() -> None:
                                         data_loader=train_dataloader, 
                                         epoch_count=epochs)
 
-    utils.save_model_checkpoint(trained, adam_optimiser, epoch, loss, save_name='5_with_new_model')
+    utils.save_model_checkpoint(trained, adam_optimiser, epoch, loss, save_name='50_epochs_resnet152_lstm')
     print('Model fully trained!')
     return captioning_model
 
 
 if __name__ == "__main__":
-    trained_model = build_and_train_model()
-    # load_and_evaluate('5_with_new_model')
+    # trained_model = build_and_train_model()
+    load_and_evaluate('50_epochs_resnet152_lstm')
