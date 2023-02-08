@@ -14,7 +14,7 @@ def train(model: nn.Module,
           data_loader: DataLoader,
           epoch_count: int=10):
     
-    model.train()
+    # model.train()
 
     for epoch in range(epoch_count):
         for idx, (imgs, captions, lengths) in enumerate(data_loader):

@@ -7,8 +7,9 @@ from PIL import Image
 
 from metrics.caption_metrics import bleu_score
 from constants import Constants as const
-from datasets.data_factory import get_flickr8k_data
-from models.model import CaptionWithInceptionV3AndLstmDropout, CaptionWithResnet152AndLstm
+from factories.data_factory import get_flickr8k_data
+from factories.model_factory import get_model, MODELS
+from models.captioning_models import CaptionWithInceptionV3AndLstm, CaptionWithResnet152AndLstm, CaptionWithSpatialGraph
 
 import utils
 import eval
@@ -41,7 +42,7 @@ def caption_array_to_string(array: list[str]) -> str:
     return caption
 
 
-def load_and_evaluate(model_name: str):
+def load_and_evaluate(model_name: str, model_save_name: str):
     embed_size = 256 
     hidden_size = 256
     num_layers = 1
@@ -67,20 +68,16 @@ def load_and_evaluate(model_name: str):
         pin_memory=True
     )
 
-    basic_caption_model = CaptionWithResnet152AndLstm(embed_size=embed_size, 
-                    hidden_size=hidden_size,
-                    vocab_size=len(dataset.vocab), 
-                    num_layers=num_layers).to(device=const.DEVICE)
+    model = get_model(model_name, len(dataset.vocab))
+    model = utils.load_model(model=model, 
+                            optimiser=None,
+                            save_name=model_save_name)
 
-    basic_caption_model = utils.load_model(model=basic_caption_model, 
-                                           optimiser=None,
-                                           save_name=model_name)
-
-    eval.evaluate_caption_model(basic_caption_model, test_loader, dataset)
+    eval.evaluate_caption_model(model, test_loader, dataset)
 
 
-def build_and_train_model() -> None:
-    # TODO: This should pull from a configuration file
+# TODO: This should pull from a configuration file rather than take a model name
+def build_and_train_model(model_name: str) -> None:
     print(f"Set device to: {const.DEVICE}\n")
     
     transform = transforms.Compose(
@@ -97,27 +94,21 @@ def build_and_train_model() -> None:
         annotation_file="/homes/hps01/flickr8k/captions.txt",
         transform=transform,
         train_ratio=0.8,
-        batch_size=64,
-        num_workers=32,
+        batch_size=4,
+        num_workers=2,
         shuffle=True,
         pin_memory=True
     )
 
     # Hyperparameters
-    embed_size = 256 
-    hidden_size = 256
-    num_layers = 1
     vocab_size = len(dataset.vocab)
     learning_rate = 3e-4
-    epochs=50
+    epochs=1
 
-    is_cnn_training = False
+    captioning_model = get_model(model_name, vocab_size)
 
-    captioning_model = CaptionWithResnet152AndLstm(embed_size=embed_size, 
-                    hidden_size=hidden_size,
-                    vocab_size=vocab_size, 
-                    num_layers=num_layers).to(device=const.DEVICE)
-
+    # TODO: Move this to the InceptionV3 implementation as a parameter
+    # is_cnn_training = False
     # Only finetune the CNN (InceptionV3)
     # for name, param in captioning_model.cnn.inception.named_parameters():
     #     if "fc.weight" in name or "fc.bias" in name:
@@ -125,7 +116,7 @@ def build_and_train_model() -> None:
     #     else:
     #         param.requires_grad = is_cnn_training
 
-    captioning_model.train()
+    # captioning_model.train()
 
     cross_entropy = nn.CrossEntropyLoss(ignore_index=dataset.vocab.stoi["<PAD>"])
     adam_optimiser = optim.Adam(captioning_model.parameters(), lr=learning_rate)
@@ -136,11 +127,60 @@ def build_and_train_model() -> None:
                                         data_loader=train_dataloader, 
                                         epoch_count=epochs)
 
-    utils.save_model_checkpoint(trained, adam_optimiser, epoch, loss, save_name='50_epochs_resnet152_lstm')
+    utils.save_model_checkpoint(trained, adam_optimiser, epoch, loss, save_name=f'{epochs}_epochs_{model_name}')
     print('Model fully trained!')
     return captioning_model
 
+from torch.nn.utils.rnn import pack_padded_sequence
+def experiment():
+    transform = transforms.Compose(
+        [
+            transforms.Resize((356, 356)),
+            transforms.RandomCrop((299, 299)),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+        ]
+    )
+
+    train_dataloader, test_loader, dataset = get_flickr8k_data(
+        root_folder="/homes/hps01/flickr8k/images",
+        annotation_file="/homes/hps01/flickr8k/captions.txt",
+        transform=transform,
+        train_ratio=0.8,
+        batch_size=4,
+        num_workers=32,
+        shuffle=True,
+        pin_memory=True
+    )
+
+    loss_function = nn.CrossEntropyLoss(ignore_index=dataset.vocab.stoi["<PAD>"])
+    model = CaptionWithSpatialGraph(embed_size=256, 
+                                    hidden_size=256, 
+                                    vocab_size=len(dataset.vocab), 
+                                    num_layers=1).to(const.DEVICE)
+    # model.train()
+    idx, (imgs, captions, lengths) = next(enumerate(train_dataloader))
+    imgs = imgs.to(const.DEVICE)
+    captions = captions.to(const.DEVICE)
+
+    outputs = model(imgs, captions, lengths)
+
+    targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
+
+    loss = loss_function(outputs, targets)
+    optimiser = optim.Adam(model.parameters(), lr=0.001)
+    model.zero_grad()
+    loss.backward()
+    optimiser.step()
+
+
+
+
 
 if __name__ == "__main__":
-    # trained_model = build_and_train_model()
-    load_and_evaluate('50_epochs_resnet152_lstm')
+    model_name = "spatialgcn"
+    trained_model = build_and_train_model(model_name)
+    load_and_evaluate(model_name, f'1_epochs_{model_name}')
+
+    # experiment()
+

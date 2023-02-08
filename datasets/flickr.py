@@ -40,6 +40,7 @@ class Flickr8kVocabulary:
                     self.stoi[word] = idx
                     self.itos[idx] = word
                     idx += 1
+    # TODO: Make sure that the length of vocab can be expressed as a power of 2: https://twitter.com/karpathy/status/1621578354024677377?s=20
 
     def numericalize(self, text):
         tokenized_text = self.tokenizer_eng(text)

@@ -13,7 +13,7 @@ def save_model_checkpoint(model: nn.Module,
                             epoch: int,
                             loss: Any,
                             save_loc: str='saved_models/',
-                            save_name: str=f"{dt.now().strftime('%d-%m-%Y-%H-%M')}") -> None:
+                            save_name: str=f"{dt.now().strftime('%d-%m-%Y-%H-%M')}.pth") -> None:
     path = os.path.join(os.getcwd(), save_loc, save_name)
     checkpoint = {
         'epoch': epoch,

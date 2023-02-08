@@ -3,21 +3,6 @@ import torch.nn as nn
 
 from torch.nn.utils.rnn import pack_padded_sequence
 
-class LstmWithDropOut(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, num_layers):
-        super(LstmWithDropOut, self).__init__()
-        self.embed = nn.Embedding(vocab_size, embed_size)
-        self.lstm = nn.LSTM(embed_size, hidden_size, num_layers)
-        self.linear = nn.Linear(hidden_size, vocab_size)
-        self.dropout = nn.Dropout(0.5)
-
-    def forward(self, features, captions):
-        embeddings = self.dropout(self.embed(captions))
-        embeddings = torch.cat((features.unsqueeze(0), embeddings), dim=0)
-        hiddens, _ = self.lstm(embeddings)
-        outputs = self.linear(hiddens)
-        return outputs
-
 
 class Lstm(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, num_layers, max_seq_length=20):
@@ -40,7 +25,12 @@ class Lstm(nn.Module):
     def sample(self, features, states=None):
         """Generate captions for given image features using greedy search."""
         sampled_ids = []
-        inputs = features#.unsqueeze(1)
+        
+        if len(features.shape) == 2:    
+            inputs = features.unsqueeze(1)
+        else:
+            inputs = features
+
         for i in range(self.max_seg_length):
             hiddens, states = self.lstm(inputs, states)          # hiddens: (batch_size, 1, hidden_size)
             outputs = self.linear(hiddens.squeeze(1))            # outputs:  (batch_size, vocab_size)
