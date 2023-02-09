@@ -7,8 +7,7 @@ import torchvision.transforms as transforms
 
 from PIL import Image
 from torch.utils.data import Dataset
-
-spacy_eng = spacy.load("en_core_web_sm")
+from constants import Constants as const
 
 
 class Flickr8kVocabulary:
@@ -22,7 +21,7 @@ class Flickr8kVocabulary:
 
     @staticmethod
     def tokenizer_eng(text):
-        return [tok.text.lower() for tok in spacy_eng.tokenizer(text)]
+        return [tok.text.lower() for tok in const.SPACY_ENG.tokenizer(text)]
 
     def build_vocabulary(self, sentence_list):
         frequencies = {}
