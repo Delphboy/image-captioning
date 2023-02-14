@@ -13,10 +13,10 @@
             "justMyCode": true
         },
         {
-            "name": "Test.py",
+            "name": "Scratchpad",
             "type": "python",
             "request": "launch",
-            "program": "test.py",
+            "program": "scratchpad.py",
             "console": "integratedTerminal",
             "justMyCode": true
         }

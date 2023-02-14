@@ -7,7 +7,7 @@ from PIL import Image
 
 from metrics.caption_metrics import bleu_score
 from constants import Constants as const
-from factories.data_factory import get_flickr8k_data
+from factories.data_factory import get_coco_data, get_flickr8k_data
 from factories.model_factory import get_model, MODELS
 from models.captioning_models import CaptionWithInceptionV3AndLstm, CaptionWithResnet152AndLstm, CaptionWithSpatialGraph
 
@@ -89,7 +89,17 @@ def build_and_train_model(model_name: str) -> None:
         ]
     )
 
-    train_dataloader, test_loader, dataset = get_flickr8k_data(
+    # train_dataloader, val_loader, train_dataset, val_dataset = get_coco_data(
+    #     root_folder="/import/visionwebdata/MSCOCO/2017/images/",
+    #     annotation_file="/import/visionwebdata/MSCOCO/2017/annotations/",
+    #     transform=transform,
+    #     batch_size=2,
+    #     num_workers=1,
+    #     shuffle=True,
+    #     pin_memory=True
+    # )
+
+    train_loader, val_loader, dataset = get_flickr8k_data(
         root_folder="/homes/hps01/flickr8k/images",
         annotation_file="/homes/hps01/flickr8k/captions.txt",
         transform=transform,
@@ -118,69 +128,25 @@ def build_and_train_model(model_name: str) -> None:
 
     # captioning_model.train()
 
+    # cross_entropy = nn.CrossEntropyLoss(ignore_index=dataset.word_to_ix["<PAD>"])
     cross_entropy = nn.CrossEntropyLoss(ignore_index=dataset.vocab.stoi["<PAD>"])
     adam_optimiser = optim.Adam(captioning_model.parameters(), lr=learning_rate)
 
     trained, epoch, loss = trainer.train(model=captioning_model, 
                                         optimiser=adam_optimiser, 
                                         loss_function=cross_entropy, 
-                                        data_loader=train_dataloader, 
+                                        data_loader=train_loader, 
                                         epoch_count=epochs)
 
     utils.save_model_checkpoint(trained, adam_optimiser, epoch, loss, save_name=f'{epochs}_epochs_{model_name}')
     print('Model fully trained!')
     return captioning_model
 
-from torch.nn.utils.rnn import pack_padded_sequence
-def experiment():
-    transform = transforms.Compose(
-        [
-            transforms.Resize((356, 356)),
-            transforms.RandomCrop((299, 299)),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ]
-    )
-
-    train_dataloader, test_loader, dataset = get_flickr8k_data(
-        root_folder="/homes/hps01/flickr8k/images",
-        annotation_file="/homes/hps01/flickr8k/captions.txt",
-        transform=transform,
-        train_ratio=0.8,
-        batch_size=4,
-        num_workers=32,
-        shuffle=True,
-        pin_memory=True
-    )
-
-    loss_function = nn.CrossEntropyLoss(ignore_index=dataset.vocab.stoi["<PAD>"])
-    model = CaptionWithSpatialGraph(embed_size=256, 
-                                    hidden_size=256, 
-                                    vocab_size=len(dataset.vocab), 
-                                    num_layers=1).to(const.DEVICE)
-    # model.train()
-    idx, (imgs, captions, lengths) = next(enumerate(train_dataloader))
-    imgs = imgs.to(const.DEVICE)
-    captions = captions.to(const.DEVICE)
-
-    outputs = model(imgs, captions, lengths)
-
-    targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
-
-    loss = loss_function(outputs, targets)
-    optimiser = optim.Adam(model.parameters(), lr=0.001)
-    model.zero_grad()
-    loss.backward()
-    optimiser.step()
-
-
-
 
 
 if __name__ == "__main__":
-    model_name = "spatialgcn"
+    model_name = "spatialgcn"#"inceptionv3lstm"
     trained_model = build_and_train_model(model_name)
-    load_and_evaluate(model_name, f'1_epochs_{model_name}')
+    # load_and_evaluate(model_name, f'1_epochs_{model_name}')
 
-    # experiment()
 

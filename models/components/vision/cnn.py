@@ -18,7 +18,7 @@ class FasterRcnnResNet101BoundingBoxes(nn.Module):
 
         self.faster_rcnn_weights = FasterRCNN_ResNet50_FPN_V2_Weights.COCO_V1
         self.faster_rcnn = fasterrcnn_resnet50_fpn_v2(weights=self.faster_rcnn_weights, 
-                                                      box_score_thresh=0.2)
+                                                      box_score_thresh=0.5)
         # self.faster_rcnn = fasterrcnn_resnet50_fpn_v2(weights=self.faster_rcnn_weights)
         self.resnet_101 = Resnet101(self.embedding_size)
         self.resnet_101 = self.resnet_101.eval()
@@ -36,12 +36,15 @@ class FasterRcnnResNet101BoundingBoxes(nn.Module):
     def forward(self, imgs):
         predictions = self._detect_objects(imgs)
 
+        # TODO: Make the bounding box feature extraction faster! Consider creating a batch from the bounding boxes and giving them to RESNET in one go
         for i, prediction in enumerate(predictions):
             features = []
-            boxes = prediction['boxes']
-            if (len(boxes) == 0):
-                print("WE HAVE ONE WITH NO PREDICTIONS")
-            for box in boxes:
+            if (len(prediction['boxes']) == 0):
+                # Treat the whole image as a single node
+                print('Generated single node for image')
+                prediction['boxes'] = torch.tensor([[0, 0, imgs[i].shape[0], imgs[i].shape[1]]])
+            
+            for box in prediction['boxes']:
                 # Crop the image to the bounding box
                 top, left, bottom, right = box
                 cropped_img = F.crop(imgs[i], int(top), int(left), int(bottom - top), int(right - left))

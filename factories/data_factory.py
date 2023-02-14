@@ -3,6 +3,7 @@ from typing import Tuple
 import torch
 from torch.utils.data import DataLoader, Dataset
 
+from datasets.coco import CocoBatcher, CocoCaptionsDataset
 from datasets.flickr import Flickr8kBatcher, Flickr8kDataset
 
 
@@ -46,3 +47,41 @@ def get_flickr8k_data(
 
     return train_loader, test_loader, dataset
 
+
+def get_coco_data(
+    root_folder,
+    annotation_file,
+    transform,
+    batch_size=32,
+    num_workers=8,
+    shuffle=True,
+    pin_memory=True,
+) -> Tuple[DataLoader, DataLoader, Dataset]:
+    train_dataset = CocoCaptionsDataset(f"{root_folder}train2017", 
+                                        f"{annotation_file}captions_train2017.json", 
+                                        transform=transform)
+    
+    val_dataset = CocoCaptionsDataset(f"{root_folder}val2017", 
+                                      f"{annotation_file}captions_val2017.json", 
+                                      transform=transform)
+       
+
+    train_loader = DataLoader(
+        dataset=train_dataset,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        shuffle=shuffle,
+        pin_memory=pin_memory,
+        collate_fn=CocoBatcher(),
+    )
+
+    val_loader = DataLoader(
+        dataset=val_dataset,
+        batch_size=1,
+        num_workers=num_workers,
+        shuffle=False,
+        pin_memory=pin_memory,
+        collate_fn=CocoBatcher(),
+    )
+
+    return train_loader, val_loader, train_dataset, val_dataset
