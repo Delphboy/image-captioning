@@ -33,6 +33,15 @@ class CaptionWithSpatialGraph(nn.Module):
         return outputs
 
 
+    def caption_image(self, image, vocabulary, max_length=50):
+        image_predictions = self.cnn(image)
+        spatial_graphs = self.spaital_graph_generator.generate_spatial_graph_for_batch(image_predictions)
+        features = self.gcn(spatial_graphs.x, spatial_graphs.edge_index, spatial_graphs.batch)
+        result_caption = self.lstm.sample(features)[0]
+        
+        return [vocabulary.itos[idx.item()] for idx in result_caption]
+
+
 
 class CaptionWithInceptionV3AndLstm(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, num_layers):

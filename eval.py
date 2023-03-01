@@ -7,7 +7,7 @@ from metrics.caption_metrics import bleu_score, meteor_score
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-# TODO: I should probably go in utils.py
+# TODO: This should probably go in utils.py
 def caption_array_to_string(array: list[str]) -> str:
     caption = ""
     for i in range(1, len(array)):

@@ -20,6 +20,8 @@ def train(model: nn.Module,
         for idx, (imgs, captions, lengths) in enumerate(data_loader):
             images = imgs.to(const.DEVICE)
             captions = captions.to(const.DEVICE)
+            
+            lengths = lengths.to('cpu') # pack_padded_sequence requires lengths to be on cpu
             targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
             
             outputs = model(images, captions, lengths)

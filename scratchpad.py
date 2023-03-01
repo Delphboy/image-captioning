@@ -26,8 +26,12 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 from constants import Constants as const
+from datasets.flickr import Flickr8kDataset
+from factories.data_factory import get_coco_data, get_flickr8k_data
 from models.components.vision.cnn import FasterRcnnResNet101BoundingBoxes
 
+from graphs.graph_generators import SpatialGraphGenerator
+from utils.precompute_graphs import precompute_flickr_spatial
 #####################
 # SCRATCH FUNCTIONS #
 #####################
@@ -41,47 +45,8 @@ from models.components.vision.cnn import FasterRcnnResNet101BoundingBoxes
 # MAIN #
 ########
 def main():
-    transform = transforms.Compose(
-        [
-            transforms.Resize((356, 356)),
-            transforms.RandomCrop((299, 299)),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ]
-    )
-
-    dataset = Flickr8kDataset(
-        root_dir="/homes/hps01/flickr8k/images",
-        captions_file="/homes/hps01/flickr8k/captions.txt",
-        transform=transform,
-        freq_threshold=5
-    )
-
-    loader = DataLoader(
-        dataset=dataset,
-        batch_size=1,
-        num_workers=1,
-        shuffle=False,
-        pin_memory=True,
-        # collate_fn=Flickr8kBatcher(pad_idx=dataset.vocab.stoi["<PAD>"]),
-    )
-
-    model = FasterRcnnResNet101BoundingBoxes(256).to(const.DEVICE)
-    model.eval()
-
-
-    images_processed = 0
-    bad_images = 0
-
-    for idx, (imgs) in tqdm(enumerate(loader), total=len(loader), leave=False):
-        images_processed += 1
-        images = imgs.to(const.DEVICE)
-        outputs = model(images)
-
-        if len(outputs[0]['boxes']) == 0:
-            bad_images += 1
-
-    print(f"{bad_images}/{images_processed} ({(bad_images / images_processed) * 100}%) bad images.")
+    precompute_flickr_spatial(256)
+    
     
 
 

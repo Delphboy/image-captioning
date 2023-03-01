@@ -89,14 +89,6 @@ class CocoBatcher:
 
         data.sort(key=sorter, reverse=True)
 
-
-        # data is a list of tuples (tensor, list of 5 captions)
-        # I need to sort data by the length of the 0th caption so that I can pack the captions
-        
-
-
-
-
         images, captions = zip(*data)
 
         # Merge images (from tuple of 3D tensor to 4D tensor).
@@ -119,4 +111,4 @@ class CocoBatcher:
         for i, cap in enumerate(numericalized_captions):
             end = lengths[i]
             targets[i, :end] = cap[:end]  
-        return images, targets, lengths
+        return images, targets, torch.tensor(lengths, dtype=torch.int64)

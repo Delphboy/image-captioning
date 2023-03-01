@@ -47,20 +47,10 @@ def load_and_evaluate(model_name: str, model_save_name: str):
     hidden_size = 256
     num_layers = 1
         
-    transform = transforms.Compose(
-            [
-                # transforms.PILToTensor(),
-                transforms.Resize((356, 356)),
-                transforms.RandomCrop((299, 299)),
-                transforms.ToTensor(),
-                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-            ]
-        )
-
     train_loader, test_loader, dataset = get_flickr8k_data(
         root_folder="/homes/hps01/flickr8k/images",
         annotation_file="/homes/hps01/flickr8k/captions.txt",
-        transform=transform,
+        transform=const.STANDARD_TRANSFORM,
         train_ratio=0.8,
         batch_size=32,
         num_workers=16,
@@ -80,19 +70,10 @@ def load_and_evaluate(model_name: str, model_save_name: str):
 def build_and_train_model(model_name: str) -> None:
     print(f"Set device to: {const.DEVICE}\n")
     
-    transform = transforms.Compose(
-        [
-            transforms.Resize((356, 356)),
-            transforms.RandomCrop((299, 299)),
-            transforms.ToTensor(),
-            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-        ]
-    )
-
     # train_dataloader, val_loader, train_dataset, val_dataset = get_coco_data(
     #     root_folder="/import/visionwebdata/MSCOCO/2017/images/",
     #     annotation_file="/import/visionwebdata/MSCOCO/2017/annotations/",
-    #     transform=transform,
+    #     transform=const.STANDARD_TRANSFORM,
     #     batch_size=2,
     #     num_workers=1,
     #     shuffle=True,
@@ -102,11 +83,11 @@ def build_and_train_model(model_name: str) -> None:
     train_loader, val_loader, dataset = get_flickr8k_data(
         root_folder="/homes/hps01/flickr8k/images",
         annotation_file="/homes/hps01/flickr8k/captions.txt",
-        transform=transform,
+        transform=const.STANDARD_TRANSFORM,
         train_ratio=0.8,
-        batch_size=4,
-        num_workers=2,
-        shuffle=True,
+        batch_size=8,
+        num_workers=4,
+        shuffle=False,
         pin_memory=True
     )
 
@@ -145,8 +126,15 @@ def build_and_train_model(model_name: str) -> None:
 
 
 if __name__ == "__main__":
-    model_name = "spatialgcn"#"inceptionv3lstm"
+    model_name = "resnet18lstm"#"spatialgcn"
     trained_model = build_and_train_model(model_name)
-    # load_and_evaluate(model_name, f'1_epochs_{model_name}')
+
+
+    # for model_name in MODELS:
+    #     try:
+    #         print('Evaluating model: ', model_name)
+    #         load_and_evaluate(model_name, f'1_epochs_{model_name}')
+    #     except Exception as e:
+    #         print(f"Error with {model_name}: {e}")
 
 

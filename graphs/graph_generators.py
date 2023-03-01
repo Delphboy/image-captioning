@@ -12,7 +12,6 @@ from torchvision.models.detection import (FasterRCNN_ResNet50_FPN_V2_Weights,
 from constants import Constants as const
 
 
-# TODO: Refactor this so the CNN is separate and `generate_spatial_graph()` takes a set of bounding boxes and feature vectors
 class SpatialGraphGenerator():
     def __init__(self):        
         self.scaler = transforms.Resize((224, 224))
@@ -66,7 +65,7 @@ class SpatialGraphGenerator():
 
         return Data(x=node_features, edge_index=edges, edge_attr=edge_attrs).to(const.DEVICE)
 
-
+    # TODO: Can we speed this up?
     def _generate_spatial_graph(self, image_prediction):
         nodes = [i for i in range(image_prediction['boxes'].shape[0])]
         edges = np.zeros((len(nodes),len(nodes)))
@@ -123,7 +122,7 @@ class SpatialGraphGenerator():
         
         return self._convert_to_pyg(nodes, edges, image_prediction)
 
-    
+
     def generate_spatial_graph_for_batch(self, image_predictions):
         graphs = []
         for image_prediction in image_predictions:
