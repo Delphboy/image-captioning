@@ -116,7 +116,7 @@ class CaptionWithResnet18AndLstm(nn.Module):
         features = self.cnn(image).unsqueeze(0)
         result_caption = self.lstm.sample(features)[0]
         
-        return [vocabulary.itos[idx.item()] for idx in result_caption]
+        return [vocabulary.itos[str(idx.item())] for idx in result_caption]
 
 
 class CaptionWithSpatialGraphAndLstm(nn.Module):
