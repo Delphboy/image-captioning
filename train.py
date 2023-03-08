@@ -1,11 +1,24 @@
 from typing import Any
+import numpy as np
 
+import datetime
 import torch.nn as nn
 import torch.optim as optim
 from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import DataLoader
 
 from constants import Constants as const
+import matplotlib.pyplot as plt
+
+def plot_training_loss(epochs, loss):
+    plt.plot(epochs, loss)
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+
+    now = datetime.datetime.now()
+    now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
+
+    plt.savefig(f'saved_models/loss-{now_str}.png')
 
 
 def train(model: nn.Module,
@@ -16,7 +29,9 @@ def train(model: nn.Module,
     
     # model.train()
 
+    loss_vals =  []
     for epoch in range(epoch_count):
+        epoch_loss= []
         for idx, (imgs, captions, lengths) in enumerate(data_loader):
             images = imgs.to(const.DEVICE)
             captions = captions.to(const.DEVICE)
@@ -29,10 +44,17 @@ def train(model: nn.Module,
             loss = loss_function(outputs, targets)
             model.zero_grad()
             loss.backward()
+
+            epoch_loss.append(loss.item())
             
             optimiser.step()
         
-            print(f"Loss for epoch {epoch+1}/{epoch_count} | {idx+1}/{len(data_loader)} | {loss}")
-            
+        epoch_loss = sum(epoch_loss)/len(epoch_loss)
+        print(f"Loss for epoch {epoch+1}/{epoch_count} | {epoch_loss}")
+        loss_vals.append(epoch_loss)
+
     
+    
+    plot_training_loss(np.linspace(1, epoch_count, epoch_count).astype(int), loss_vals)
+
     return model, epoch, loss
