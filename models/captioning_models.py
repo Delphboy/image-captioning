@@ -1,3 +1,4 @@
+from typing import Optional
 import torch
 import torch.nn as nn
 
@@ -18,12 +19,12 @@ class CaptionWithSpatialGraph(nn.Module):
         self.spaital_graph_generator = SpatialGraphGenerator()
     
     
-    def forward(self, images, captions, lengths):
+    def forward(self, images, captions, lengths, graphs):
         # Get objects
-        image_predictions = self.cnn(images)
+        # image_predictions = self.cnn(images)
         
         # Generate spatial graph
-        spatial_graphs = self.spaital_graph_generator.generate_spatial_graph_for_batch(image_predictions)        
+        spatial_graphs = graphs#self.spaital_graph_generator.generate_spatial_graph_for_batch(image_predictions)        
     
         # Apply GCN
         features = self.gcn(spatial_graphs.x, spatial_graphs.edge_index, spatial_graphs.batch)            
@@ -39,7 +40,14 @@ class CaptionWithSpatialGraph(nn.Module):
         features = self.gcn(spatial_graphs.x, spatial_graphs.edge_index, spatial_graphs.batch)
         result_caption = self.lstm.sample(features)[0]
         
-        return [vocabulary.itos[idx.item()] for idx in result_caption]
+        return [vocabulary.itos[str(idx.item())] for idx in result_caption]
+    
+
+    def caption_image_precomputed(self, spatial_graphs, vocabulary, max_length=50):
+        features = self.gcn(spatial_graphs.x, spatial_graphs.edge_index, spatial_graphs.batch)
+        result_caption = self.lstm.sample(features)[0]
+        
+        return [vocabulary.itos[str(idx.item())] for idx in result_caption]
 
 
 
@@ -117,31 +125,3 @@ class CaptionWithResnet18AndLstm(nn.Module):
         result_caption = self.lstm.sample(features)[0]
         
         return [vocabulary.itos[str(idx.item())] for idx in result_caption]
-
-
-class CaptionWithSpatialGraphAndLstm(nn.Module):
-    def __init__(self, embed_size, hidden_size, vocab_size, num_layers) -> None:
-        super(CaptionWithSpatialGraphAndLstm, self).__init__()
-        self.graph_generator = SpatialGraphGenerator()
-        
-        self.gcn = Gcn(embed_size, embed_size)
-        self.lstm = Lstm(embed_size, hidden_size, vocab_size, num_layers)
-
-        
-    def forward(self, imgs, captions, lengths):
-
-        # 1. Generate scene graphs for each graph in the batch (consider pre-computing these at a later date)
-        G = self.graph_generator.generate_spatial_graph_for_batch(imgs)
-    
-        # 2. GCN on graph
-        pre_x = G.get_nodes()
-        edge_index = G.get_edges()
-        convolved_graph = self.gcn(pre_x, edge_index)
-
-        # 3. Mean pool graph nodes
-        features = torch.mean(convolved_graph, dim=0)
-
-        # 4. LSTM
-        outputs = self.lstm(features, captions, lengths)
-
-        return outputs

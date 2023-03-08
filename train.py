@@ -6,9 +6,12 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.nn.utils.rnn import pack_padded_sequence
 from torch.utils.data import DataLoader
+from tqdm import tqdm
 
 from constants import Constants as const
 import matplotlib.pyplot as plt
+
+from graphs.graph_generators import SpatialGraphGenerator
 
 def plot_training_loss(epochs, loss):
     plt.plot(epochs, loss)
@@ -58,3 +61,42 @@ def train(model: nn.Module,
     plot_training_loss(np.linspace(1, epoch_count, epoch_count).astype(int), loss_vals)
 
     return model, epoch, loss
+
+
+def train_graph_model(model: nn.Module, 
+                      optimiser: optim.Optimizer, 
+                      loss_function: Any, 
+                      data_loader: DataLoader, 
+                      epoch_count: int=10):
+       
+    loss_vals =  []
+    for epoch in range(epoch_count):
+        epoch_loss= []
+        for idx, (imgs, captions, lengths, graphs) in tqdm(enumerate(data_loader), total=len(data_loader), leave=False):
+            images = imgs.to(const.DEVICE)
+            captions = captions.to(const.DEVICE)
+            graphs.cuda()
+            
+            lengths = lengths.to('cpu') # pack_padded_sequence requires lengths to be on cpu
+            targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
+            
+            outputs = model(images, captions, lengths, graphs)
+            
+            loss = loss_function(outputs, targets)
+            model.zero_grad()
+            loss.backward()
+
+            epoch_loss.append(loss.item())
+            
+            optimiser.step()
+        
+        epoch_loss = sum(epoch_loss)/len(epoch_loss)
+        print(f"Loss for epoch {epoch+1}/{epoch_count} | {epoch_loss}")
+        loss_vals.append(epoch_loss)
+
+    
+    
+    plot_training_loss(np.linspace(1, epoch_count, epoch_count).astype(int), loss_vals)
+
+    return model, epoch, loss
+

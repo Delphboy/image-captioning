@@ -23,6 +23,33 @@ def caption_array_to_string(array: list[str]) -> str:
     return caption
 
 
+def evaluate_graph_caption_model(model: nn.Module,
+                           loader: DataLoader,
+                           dataset: Dataset):
+    references = []
+    hypotheses = []
+
+    print("Generating Captions for Test Set")
+    for idx, (imgs, captions, lengths, graphs) in tqdm(enumerate(loader), total=len(loader), leave=False):
+        imgs = imgs.to(const.DEVICE)
+        graphs.cuda()
+
+        index = list(loader.dataset.indices)[idx]
+        img_id = dataset.imgs[index]
+        reference_captions = dataset.get_grouped_captions(img_id)
+
+        prediction = model.caption_image_precomputed(graphs, dataset.vocab)
+        candidate_caption = caption_array_to_string(prediction)
+        
+        hypotheses.append(candidate_caption)
+        references.append(reference_captions)
+        
+
+    print("Calculating BLEU Score")
+    print(bleu_score(references, hypotheses))
+
+
+
 def evaluate_caption_model(model: nn.Module,
                            loader: DataLoader,
                            dataset: Dataset):

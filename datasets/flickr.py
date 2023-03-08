@@ -5,7 +5,7 @@ import pandas as pd
 import spacy
 import torch
 import torchvision.transforms as transforms
-
+from torch_geometric.data import Batch, Data
 from PIL import Image
 from torch.utils.data import Dataset
 from constants import Constants as const
@@ -102,6 +102,29 @@ class Flickr8kDataset(Dataset):
         return self.grouped_captions.loc[self.grouped_captions['image'] == image_id]['caption'].item()
 
 
+class Flickr8kDatasetWithSpatialGraphs(Flickr8kDataset):
+    def __init__(self, 
+                root_dir:str, 
+                captions_file: str, 
+                transform:transforms.Compose=None, 
+                freq_threshold: int=5,
+                graph_dir: str=None):
+        
+        super().__init__(root_dir, captions_file, transform, freq_threshold)
+        # TODO: Add check to compute graphs if the graph_dir is None
+        self.graph_dir = graph_dir
+        self.graphs = torch.load(self.graph_dir)
+        for graph in self.graphs:
+            self.graphs[graph].detach()
+            self.graphs[graph].cpu()
+
+
+    def __getitem__(self, index):
+        img, captions = super().__getitem__(index)
+        graph = self.graphs[index]
+        return img, captions, graph
+
+
 class Flickr8kBatcher:
     def __init__(self, pad_idx):
         self.pad_idx = pad_idx
@@ -141,3 +164,25 @@ class Flickr8kBatcher:
             end = lengths[i]
             targets[i, :end] = cap[:end]  
         return images, targets, torch.tensor(lengths, dtype=torch.int64)
+
+
+class Flickr8kGraphsBatcher(Flickr8kBatcher):
+    def __init__(self, pad_idx):
+        super().__init__(pad_idx)
+
+
+    def __call__(self, data):
+        def sorter(batch_element):
+            # Protect against hyphenated words (spacy tokeniser splits them)
+            batch_element[1][0] = batch_element[1][0].replace('-', ' - ')
+            return len(batch_element[1][0].split(' '))
+
+        data.sort(key=sorter, reverse=True)
+
+        images, captions, graphs = zip(*data)
+        zipped = list(zip(images, captions))
+        images, targets, lengths = super().__call__(zipped)
+
+        graphs = Batch.from_data_list(list(graphs))
+
+        return images, targets, lengths, graphs

@@ -1,20 +1,17 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
 from PIL import Image
 
-from metrics.caption_metrics import bleu_score
-from constants import Constants as const
-from factories.data_factory import get_coco_data, get_flickr8k_data
-from factories.model_factory import get_model, MODELS
-from models.captioning_models import CaptionWithInceptionV3AndLstm, CaptionWithResnet152AndLstm, CaptionWithSpatialGraph
-
-import utils
 import eval
 import train as trainer
-
+from constants import Constants as const
+from factories.data_factory import get_coco_data, get_flickr8k_data, get_flickr8k_data_with_spatial_graphs
+from factories.model_factory import get_model
+from models.captioning_models import (CaptionWithInceptionV3AndLstm,
+                                      CaptionWithResnet152AndLstm,
+                                      CaptionWithSpatialGraph)
+from utils import save_and_load_models
 
 
 def get_test_image(location, transform=None):
@@ -42,28 +39,41 @@ def caption_array_to_string(array: list[str]) -> str:
     return caption
 
 
-def load_and_evaluate(model_name: str, model_save_name: str):
-    embed_size = 256 
-    hidden_size = 256
-    num_layers = 1
-        
-    train_loader, test_loader, dataset = get_flickr8k_data(
-        root_folder="/homes/hps01/flickr8k/images",
-        annotation_file="/homes/hps01/flickr8k/captions.txt",
+def load_and_evaluate(model_name: str, model_save_name: str, is_graph_based: bool = False):        
+    if is_graph_based:
+        train_loader, test_loader, dataset = get_flickr8k_data_with_spatial_graphs(
+        root_folder=const.FLICKR_ROOT,
+        annotation_file=const.FLICKR_ANN,
         transform=const.STANDARD_TRANSFORM,
+        graph_dir='/homes/hps01/image-captioning/saved_models/flickr_spatial_graphs.pt',
         train_ratio=0.8,
         batch_size=32,
         num_workers=16,
         shuffle=False,
         pin_memory=True
     )
+    else:
+        train_loader, test_loader, dataset = get_flickr8k_data(
+            root_folder=const.FLICKR_ROOT,
+            annotation_file=const.FLICKR_ANN,
+            transform=const.STANDARD_TRANSFORM,
+            train_ratio=0.8,
+            batch_size=32,
+            num_workers=16,
+            shuffle=False,
+            pin_memory=True
+        )
 
     model = get_model(model_name, len(dataset.vocab))
-    model = utils.load_model(model=model, 
-                            optimiser=None,
-                            save_name=model_save_name)
+    model = save_and_load_models.load_model(model=model, 
+                                            optimiser=None, 
+                                            save_name=model_save_name)
 
-    eval.evaluate_caption_model(model, test_loader, dataset)
+    if is_graph_based:
+        eval.evaluate_graph_caption_model(model, test_loader, dataset)
+    else:
+        eval.evaluate_caption_model(model, test_loader, dataset)
+
 
 
 # TODO: This should pull from a configuration file rather than take a model name
@@ -81,8 +91,8 @@ def build_and_train_model(model_name: str) -> None:
     # )
 
     train_loader, val_loader, dataset = get_flickr8k_data(
-        root_folder="/homes/hps01/flickr8k/images",
-        annotation_file="/homes/hps01/flickr8k/captions.txt",
+        root_folder=const.FLICKR_ROOT,
+        annotation_file=const.FLICKR_ANN,
         transform=const.STANDARD_TRANSFORM,
         train_ratio=0.8,
         batch_size=8,
@@ -119,22 +129,52 @@ def build_and_train_model(model_name: str) -> None:
                                         data_loader=train_loader, 
                                         epoch_count=epochs)
 
-    utils.save_model_checkpoint(trained, adam_optimiser, epoch, loss, save_name=f'{epochs}_epochs_{model_name}')
+    save_and_load_models.save_model_checkpoint(trained, adam_optimiser, epoch, loss, save_name=f'{epochs}_epochs_{model_name}')
     print('Model fully trained!')
     return captioning_model
 
 
+# TODO: This should pull from a configuration file rather than take a model name
+def build_and_train_graph_model(model_name: str) -> None:
+    print(f"Set device to: {const.DEVICE}\n")
+
+    train_loader, val_loader, dataset = get_flickr8k_data_with_spatial_graphs(
+        root_folder=const.FLICKR_ROOT,
+        annotation_file=const.FLICKR_ANN,
+        transform=const.STANDARD_TRANSFORM,
+        graph_dir='/homes/hps01/image-captioning/saved_models/flickr_spatial_graphs.pt',
+        train_ratio=0.8,
+        batch_size=8,
+        num_workers=4,
+        shuffle=False,
+        pin_memory=True
+    )
+
+    # Hyperparameters
+    vocab_size = len(dataset.vocab)
+    learning_rate = 3e-4
+    epochs=5
+
+    captioning_model = get_model(model_name, vocab_size)
+
+    cross_entropy = nn.CrossEntropyLoss(ignore_index=dataset.vocab.stoi["<PAD>"])
+    adam_optimiser = optim.Adam(captioning_model.parameters(), lr=learning_rate)
+
+    trained, epoch, loss = trainer.train_graph_model(model=captioning_model, 
+                                                     optimiser=adam_optimiser, 
+                                                     loss_function=cross_entropy, 
+                                                     data_loader=train_loader, 
+                                                     epoch_count=epochs)
+
+    save_and_load_models.save_model_checkpoint(trained, adam_optimiser, epoch, loss, save_name=f'{epochs}_epochs_{model_name}')
+    print('Model fully trained!')
+    return captioning_model
+
 
 if __name__ == "__main__":
-    model_name = "resnet18lstm"#"spatialgcn"
-    trained_model = build_and_train_model(model_name)
+    model_name = "spatialgcn"
+    trained_model = build_and_train_graph_model(model_name)
+    load_and_evaluate(model_name, f'5_epochs_{model_name}', is_graph_based=True)
 
-
-    # for model_name in MODELS:
-    #     try:
-    #         print('Evaluating model: ', model_name)
-    #         load_and_evaluate(model_name, f'1_epochs_{model_name}')
-    #     except Exception as e:
-    #         print(f"Error with {model_name}: {e}")
 
 
