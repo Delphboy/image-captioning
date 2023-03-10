@@ -1,8 +1,4 @@
-import nltk
 from nltk.translate.bleu_score import corpus_bleu
-from nltk.translate.meteor_score import meteor_score
-
-import torch.nn as nn
 
 
 def bleu_score(ground_truths, predicted):
