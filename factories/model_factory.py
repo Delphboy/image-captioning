@@ -1,6 +1,6 @@
 from typing import Optional
 from constants import Constants as const
-import models.captioning_models as cap_models
+import models.basic_captioning_models as cap_models
 
 import torch.nn as nn
 

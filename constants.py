@@ -7,7 +7,7 @@ import spacy
 class Constants:
     DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     SPACY_ENG = spacy.load("en_core_web_sm")
-    FLICKR_ROOT = '/import/gameai-01/eey362/datasets/flickr8k/images'
+    FLICKR_ROOT = '/import/gameai-01/eey362/datasets/flickr8k/images' # TODO: These should come from a config file
     FLICKR_ANN = '/import/gameai-01/eey362/datasets/flickr8k/captions.txt'
     STANDARD_TRANSFORM = transforms.Compose(
         [

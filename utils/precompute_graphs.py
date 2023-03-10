@@ -3,12 +3,8 @@ from tqdm import tqdm
 
 import factories.data_factory as dfact
 from constants import Constants as const
-from graphs.graph_generators import SpatialGraphGenerator
-from models.components.vision.cnn import FasterRcnnResNet101BoundingBoxes
-
-
-def main():
-    print('run')
+from graphs.spatial_graph_generator import SpatialGraphGenerator
+from models.components.vision.object_detectors import FasterRcnnResNet101BoundingBoxes
 
 
 def precompute_flickr_spatial(embed_size):
@@ -33,8 +29,5 @@ def precompute_flickr_spatial(embed_size):
         prediction = cnn(images)[0]
         graphs[loader.dataset.indices[idx]] = spatial_generator._generate_spatial_graph(prediction)
 
-    torch.save(graphs, 'datasets/flickr_spatial_graphs.pt')
+    torch.save(graphs, 'saved_models/flickr_spatial_graphs.pt')
 
-
-if __name__ == "__main__":
-    main()

@@ -8,9 +8,8 @@ import train as trainer
 from constants import Constants as const
 from factories.data_factory import get_coco_data, get_flickr8k_data, get_flickr8k_data_with_spatial_graphs
 from factories.model_factory import get_model
-from models.captioning_models import (CaptionWithInceptionV3AndLstm,
-                                      CaptionWithResnet152AndLstm,
-                                      CaptionWithSpatialGraph)
+from models.basic_captioning_models import (CaptionWithInceptionV3AndLstm,
+                                      CaptionWithResnet152AndLstm)
 from utils import save_and_load_models
 
 
@@ -45,10 +44,10 @@ def load_and_evaluate(model_name: str, model_save_name: str, is_graph_based: boo
         root_folder=const.FLICKR_ROOT,
         annotation_file=const.FLICKR_ANN,
         transform=const.STANDARD_TRANSFORM,
-        graph_dir='/homes/hps01/image-captioning/saved_models/flickr_spatial_graphs.pt',
+        graph_dir='/homes/hps01/image-captioning/saved_models/flickr_spatial_graphs.pt', # TODO: Move to constants
         train_ratio=0.8,
-        batch_size=32,
-        num_workers=16,
+        batch_size=1,
+        num_workers=1,
         shuffle=False,
         pin_memory=True
     )
@@ -58,8 +57,8 @@ def load_and_evaluate(model_name: str, model_save_name: str, is_graph_based: boo
             annotation_file=const.FLICKR_ANN,
             transform=const.STANDARD_TRANSFORM,
             train_ratio=0.8,
-            batch_size=32,
-            num_workers=16,
+            batch_size=1,
+            num_workers=1,
             shuffle=False,
             pin_memory=True
         )
@@ -104,7 +103,7 @@ def build_and_train_model(model_name: str) -> None:
     # Hyperparameters
     vocab_size = len(dataset.vocab)
     learning_rate = 3e-4
-    epochs=1
+    epochs=100
 
     captioning_model = get_model(model_name, vocab_size)
 
@@ -153,7 +152,7 @@ def build_and_train_graph_model(model_name: str) -> None:
     # Hyperparameters
     vocab_size = len(dataset.vocab)
     learning_rate = 3e-4
-    epochs=5
+    epochs=100
 
     captioning_model = get_model(model_name, vocab_size)
 
@@ -173,8 +172,8 @@ def build_and_train_graph_model(model_name: str) -> None:
 
 if __name__ == "__main__":
     model_name = "spatialgcn"
-    trained_model = build_and_train_graph_model(model_name)
-    load_and_evaluate(model_name, f'5_epochs_{model_name}', is_graph_based=True)
+    # trained_model = build_and_train_model(model_name)
+    load_and_evaluate(model_name, f'100_epochs_{model_name}', is_graph_based=model_name=="spatialgcn")
 
 
 

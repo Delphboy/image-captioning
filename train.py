@@ -11,7 +11,7 @@ from tqdm import tqdm
 from constants import Constants as const
 import matplotlib.pyplot as plt
 
-from graphs.graph_generators import SpatialGraphGenerator
+from graphs.spatial_graph_generator import SpatialGraphGenerator
 
 def plot_training_loss(epochs, loss):
     plt.plot(epochs, loss)
