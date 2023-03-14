@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from PIL import Image
+from typing import List
 
 import eval
 import train as trainer
@@ -21,7 +22,7 @@ def get_test_image(location, transform=None):
     return img
 
 
-def caption_array_to_string(array: list[str]) -> str:
+def caption_array_to_string(array: List[str]) -> str:
     caption = ""
 
     for i in range(1, len(array)):
@@ -172,7 +173,7 @@ def build_and_train_graph_model(model_name: str) -> None:
 
 if __name__ == "__main__":
     model_name = "spatialgcn"
-    # trained_model = build_and_train_model(model_name)
+    trained_model = build_and_train_graph_model(model_name)
     load_and_evaluate(model_name, f'100_epochs_{model_name}', is_graph_based=model_name=="spatialgcn")
 
 
