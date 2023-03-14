@@ -1,3 +1,4 @@
+from typing import List
 from constants import Constants as const
 
 import torch.nn as nn
@@ -8,7 +9,7 @@ from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
 # TODO: This should probably go in utils.py
-def caption_array_to_string(array: list[str]) -> str:
+def caption_array_to_string(array: List[str]) -> str:
     caption = ""
     for i in range(1, len(array)):
         item = array[i]
