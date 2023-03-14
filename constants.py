@@ -5,10 +5,11 @@ import spacy
 
 @dataclass
 class Constants:
-    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu') # TODO: This should come from a config file
     SPACY_ENG = spacy.load("en_core_web_sm")
-    FLICKR_ROOT = '/import/gameai-01/eey362/datasets/flickr8k/images' # TODO: These should come from a config file
-    FLICKR_ANN = '/import/gameai-01/eey362/datasets/flickr8k/captions.txt'
+    FLICKR_ROOT = '/data/scratch/eey362/flickr8k/images' # TODO: These should come from a config file
+    FLICKR_ANN = '/data/scratch/eey362/flickr8k/captions.txt'
+    PRECOMPUTED_SPATIAL_GRAPHS = '/data/home/eey362/image-captioning/saved_models/flickr_spatial_graphs.pt'
     STANDARD_TRANSFORM = transforms.Compose(
         [
             transforms.Resize((356, 356)),

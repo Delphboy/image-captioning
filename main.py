@@ -45,7 +45,7 @@ def load_and_evaluate(model_name: str, model_save_name: str, is_graph_based: boo
         root_folder=const.FLICKR_ROOT,
         annotation_file=const.FLICKR_ANN,
         transform=const.STANDARD_TRANSFORM,
-        graph_dir='/homes/hps01/image-captioning/saved_models/flickr_spatial_graphs.pt', # TODO: Move to constants
+        graph_dir=const.PRECOMPUTED_SPATIAL_GRAPHS,
         train_ratio=0.8,
         batch_size=1,
         num_workers=1,
@@ -142,7 +142,7 @@ def build_and_train_graph_model(model_name: str) -> None:
         root_folder=const.FLICKR_ROOT,
         annotation_file=const.FLICKR_ANN,
         transform=const.STANDARD_TRANSFORM,
-        graph_dir='/homes/hps01/image-captioning/saved_models/flickr_spatial_graphs.pt',
+        graph_dir=const.PRECOMPUTED_SPATIAL_GRAPHS,
         train_ratio=0.8,
         batch_size=8,
         num_workers=4,
