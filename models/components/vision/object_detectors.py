@@ -3,7 +3,7 @@ import torch.nn as nn
 import torchvision.transforms.functional as F
 from torchvision.models.detection import (FasterRCNN_ResNet50_FPN_V2_Weights,
                                           fasterrcnn_resnet50_fpn_v2)
-from encoders import Resnet
+from models.components.vision.encoders import Resnet
 
 class FasterRcnnResNet101BoundingBoxes(nn.Module):
     def __init__(self, embedding_size):

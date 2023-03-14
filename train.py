@@ -24,6 +24,8 @@ def plot_training_loss(epochs, loss):
     plt.savefig(f'saved_models/loss-{now_str}.png')
 
 
+# TODO: Make into one train loop that figures out if it's a graph model or not
+
 def train(model: nn.Module,
           optimiser: optim.Optimizer,
           loss_function: Any,

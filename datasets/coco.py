@@ -56,6 +56,7 @@ class CocoCaptionsDataset(VisionDataset):
 
 class CocoBatcher:
     def __init__(self):
+        # TODO: Don't hardcode this path
         with open("/homes/hps01/image-captioning/datasets/cocotalk.json", "r") as f:
             self.coco = json.load(f)
 

@@ -172,7 +172,7 @@ def build_and_train_graph_model(model_name: str) -> None:
 
 if __name__ == "__main__":
     model_name = "spatialgcn"
-    # trained_model = build_and_train_model(model_name)
+    trained_model = build_and_train_graph_model(model_name)
     load_and_evaluate(model_name, f'100_epochs_{model_name}', is_graph_based=model_name=="spatialgcn")
 
 

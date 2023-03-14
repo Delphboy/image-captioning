@@ -3,7 +3,7 @@ from constants import Constants as const
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from datasets.flickr import Flickr8kVocabulary
-from metrics.caption_metrics import bleu_score, meteor_score
+from metrics.caption_metrics import bleu_score
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 

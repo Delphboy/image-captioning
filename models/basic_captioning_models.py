@@ -1,13 +1,7 @@
-from typing import Optional
-import torch
 import torch.nn as nn
 
 from models.components.vision.encoders import InceptionV3, Resnet
-from models.components.vision.object_detectors import FasterRcnnResNet101BoundingBoxes
 from models.components.language.lstm import Lstm
-
-from graphs.spatial_graph_generator import SpatialGraphGenerator
-from models.components.gnns.gcn import Gcn
 
 
 class CaptionWithInceptionV3AndLstm(nn.Module):
