@@ -9,56 +9,11 @@ from torch_geometric.data import Batch, Data
 from PIL import Image
 from torch.utils.data import Dataset
 from constants import Constants as const
-
-
-class Flickr8kVocabulary:
-    def __init__(self, freq_threshold):
-        self.itos = {0: "<PAD>", 1: "<SOS>", 2: "<EOS>", 3: "<UNK>"}
-        self.stoi = {"<PAD>": 0, "<SOS>": 1, "<EOS>": 2, "<UNK>": 3}
-        self.freq_threshold = freq_threshold
-
-    def __len__(self):
-        return len(self.itos)
-
-    @staticmethod
-    def tokenizer_eng(text): return [tok.text.lower() for tok in const.SPACY_ENG.tokenizer(text)]
-
-    def build_vocabulary(self, sentence_list=None):
-        # if flickr8k.json exists, load it into self.itos and self.stoi
-        if os.path.exists('datasets/flickrtalk.json'):
-            with open('datasets/flickrtalk.json', 'r') as f:
-                self.itos = json.load(f)
-                self.stoi = {v: int(k) for k, v in self.itos.items()}
-            return
-
-        frequencies = {}
-        idx = 4 # idx 0, 1, 2, 3 are already taken (PAD, SOS, EOS, UNK)
-        for sentence in sentence_list:
-            for word in self.tokenizer_eng(sentence):
-                if word not in frequencies:
-                    frequencies[word] = 1
-                else:
-                    frequencies[word] += 1
-
-                if frequencies[word] == self.freq_threshold:
-                    self.stoi[word] = int(idx)
-                    self.itos[idx] = word
-                    idx += 1
-        
-        # write self.itos to a json file in teh datasets folder
-        with open('datasets/flickrtalk.json', 'w') as f:
-            json.dump(self.itos, f)
-
-    # TODO: Make sure that the length of vocab can be expressed as a power of 2: https://twitter.com/karpathy/status/1621578354024677377?s=20
-
-    def numericalize(self, text):
-        tokenized_text = self.tokenizer_eng(text)
-
-        return [
-            self.stoi[token] if token in self.stoi else self.stoi["<UNK>"]
-            for token in tokenized_text
-        ]
-
+from datasets.vocabulary import Vocabulary
+from torchvision.io.image import read_image
+import torchvision.transforms.functional as F
+from utils.data_cleaning import preprocess_captions
+import torchvision
 
 class Flickr8kDataset(Dataset):
     def __init__(self, 
@@ -78,7 +33,7 @@ class Flickr8kDataset(Dataset):
         self.grouped_captions = pd.read_csv(captions_file, sep=',', header=None, names=['image', 'caption'])
         self.grouped_captions = self.grouped_captions.groupby('image')['caption'].apply(list).reset_index()
 
-        self.vocab = Flickr8kVocabulary(freq_threshold)
+        self.vocab = Vocabulary(freq_threshold)
         self.vocab.build_vocabulary(self.captions.tolist())
 
 
@@ -88,12 +43,15 @@ class Flickr8kDataset(Dataset):
 
     def __getitem__(self, index):
         img_id = self.imgs[index]
-        img = Image.open(os.path.join(self.root_dir, img_id)).convert("RGB")
+        # img = Image.open(os.path.join(self.root_dir, img_id)).convert("RGB")
+        # print(f'debug __getitem__: {index} -> {img_id}')
+        img = read_image(os.path.join(self.root_dir, img_id))
 
         if self.transform is not None:
             img = self.transform(img)
         
         captions = self.grouped_captions.loc[self.grouped_captions['image'] == img_id]['caption'].values[0]
+        captions = preprocess_captions(captions)
 
         return img, captions
 
@@ -107,12 +65,10 @@ class Flickr8kDatasetWithSpatialGraphs(Flickr8kDataset):
                 root_dir:str, 
                 captions_file: str, 
                 transform:transforms.Compose=None, 
-                freq_threshold: int=5,
-                graph_dir: str=None):
+                freq_threshold: int=5):
         
         super().__init__(root_dir, captions_file, transform, freq_threshold)
-        # TODO: Add check to compute graphs if the graph_dir is None
-        self.graph_dir = graph_dir
+        self.graph_dir = const.PRECOMPUTED_SPATIAL_GRAPHS
         self.graphs = torch.load(self.graph_dir)
         for graph in self.graphs:
             self.graphs[graph].detach()
@@ -120,23 +76,24 @@ class Flickr8kDatasetWithSpatialGraphs(Flickr8kDataset):
 
 
     def __getitem__(self, index):
+        img_id = self.imgs[index]
         img, captions = super().__getitem__(index)
-        graph = self.graphs[index]
+        graph = self.graphs[img_id]
+        # print(f'debug: Giving graph for {index} -> {img_id}')
         return img, captions, graph
 
 
 class Flickr8kBatcher:
     def __init__(self, pad_idx):
         self.pad_idx = pad_idx
-        self.vocab = Flickr8kVocabulary(5)
+        self.vocab = Vocabulary(5)
         self.vocab.build_vocabulary()
 
 
     def __call__(self, data):
         def sorter(batch_element):
-            # Protect against hyphenated words (spacy tokeniser splits them)
-            batch_element[1][0] = batch_element[1][0].replace('-', ' - ')
-            return len(batch_element[1][0].split(' '))
+            length = len(batch_element[1][0].split(' '))
+            return length
 
         data.sort(key=sorter, reverse=True)
 
@@ -158,12 +115,12 @@ class Flickr8kBatcher:
 
         lengths = [len(cap) for cap in numericalized_captions]
 
-        targets = torch.zeros(len(numericalized_captions), max(lengths)).long()
+        captions_tensor = torch.zeros(len(numericalized_captions), max(lengths)).long()
 
         for i, cap in enumerate(numericalized_captions):
             end = lengths[i]
-            targets[i, :end] = cap[:end]  
-        return images, targets, torch.tensor(lengths, dtype=torch.int64)
+            captions_tensor[i, :end] = cap[:end]  
+        return images, captions_tensor, torch.tensor(lengths, dtype=torch.int64)
 
 
 class Flickr8kGraphsBatcher(Flickr8kBatcher):
@@ -181,8 +138,8 @@ class Flickr8kGraphsBatcher(Flickr8kBatcher):
 
         images, captions, graphs = zip(*data)
         zipped = list(zip(images, captions))
-        images, targets, lengths = super().__call__(zipped)
+        images, captions_tensor, lengths = super().__call__(zipped)
 
         graphs = Batch.from_data_list(list(graphs))
 
-        return images, targets, lengths, graphs
+        return images, captions_tensor, lengths, graphs

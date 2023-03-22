@@ -1,0 +1,21 @@
+{   
+    "model": "resnet101lstm",
+    "model_save_name": "resnet101lstm_50_epochs",
+    "dataset": {
+        "name": "flickr8k",
+        "root": "/import/gameai-01/eey362/datasets/flickr8k/images",
+        "annotations": "/import/gameai-01/eey362/datasets/flickr8k/captions.txt",
+        "talk_file": "/homes/hps01/image-captioning/datasets/talk_files/flickrtalk.json"
+    },
+
+    "training_parameters":{
+        "batch_size": 64,
+        "num_workers": 8,
+        "shuffle": "True",
+        "pin_memory": "True",
+        "learning_rate": 3e-4,
+        "epochs": 100
+    },
+    "is_graph_model": "False",
+    "regime": "train_and_test"
+}

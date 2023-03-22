@@ -1,27 +1,15 @@
-from typing import List
 from constants import Constants as const
+from utils.helper_functions import caption_array_to_string
 
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from datasets.flickr import Flickr8kVocabulary
 from metrics.caption_metrics import bleu_score
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-# TODO: This should probably go in utils.py
-def caption_array_to_string(array: List[str]) -> str:
-    caption = ""
-    for i in range(1, len(array)):
-        item = array[i]
-        if item == "<EOS>": break
+from torchvision.utils import save_image
 
-        # The captions.txt has a space before fullstops
-        if item != '.':
-            caption += f"{item} "
-        else:
-            caption += "."
-
-    return caption
+DEBUG=False
 
 
 def evaluate_graph_caption_model(model: nn.Module,
@@ -29,21 +17,23 @@ def evaluate_graph_caption_model(model: nn.Module,
                            dataset: Dataset):
     references = []
     hypotheses = []
-
+    img_idx = 0
+    model.eval()
     print("Generating Captions for Test Set")
-    for idx, (imgs, captions, lengths, graphs) in tqdm(enumerate(loader), total=len(loader), leave=False):
-        imgs = imgs.to(const.DEVICE)
+    for data in tqdm(iter(dataset), total=len(dataset), leave=False):
+        imgs = data[0].to(const.DEVICE)
+        imgs = imgs.unsqueeze(0)
+        reference_captions = data[1]
+        graphs = data[2]
         graphs.cuda()
 
-        index = list(loader.dataset.indices)[idx]
-        img_id = dataset.imgs[index]
-        reference_captions = dataset.get_grouped_captions(img_id)
-
-        prediction = model.caption_image_precomputed(graphs, dataset.vocab)
+        prediction = model.caption_image_precomputed(graphs, dataset.dataset.vocab)
         candidate_caption = caption_array_to_string(prediction)
+        if DEBUG: print(f"{dataset.dataset.imgs[dataset.indices[img_idx]]}: {candidate_caption}")
         
         hypotheses.append(candidate_caption)
         references.append(reference_captions)
+        img_idx += 1
         
 
     print("Calculating BLEU Score")
@@ -56,21 +46,22 @@ def evaluate_caption_model(model: nn.Module,
                            dataset: Dataset):
     references = []
     hypotheses = []
-
+    
+    img_idx = 0
+    model.eval()
     print("Generating Captions for Test Set")
-    for idx, (imgs, _, _) in tqdm(enumerate(loader), total=len(loader), leave=False):
-        # print(f"Processing {idx+1}/{len(loader)}")
-        imgs = imgs.to(const.DEVICE)
+    for data in tqdm(iter(dataset), total=len(dataset), leave=False):
+        imgs = data[0].to(const.DEVICE)
+        imgs = imgs.unsqueeze(0)
+        reference_captions = data[1]
 
-        index = list(loader.dataset.indices)[idx]
-        img_id = dataset.imgs[index]
-        reference_captions = dataset.get_grouped_captions(img_id)
-
-        prediction = model.caption_image(imgs, dataset.vocab)
+        prediction = model.caption_image(imgs, dataset.dataset.vocab)
         candidate_caption = caption_array_to_string(prediction)
+        if DEBUG: print(f"{dataset.dataset.imgs[dataset.indices[img_idx]]}: {candidate_caption}")
         
         hypotheses.append(candidate_caption)
         references.append(reference_captions)
+        img_idx += 1
         
 
     print("Calculating BLEU Score")

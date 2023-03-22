@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 from models.components.vision.encoders import InceptionV3, Resnet
@@ -11,16 +12,18 @@ class CaptionWithInceptionV3AndLstm(nn.Module):
         self.lstm = Lstm(embed_size, hidden_size, vocab_size, num_layers)
 
 
-    def forward(self, images, captions, lengths):
+    def forward(self, images, captions):
         features = self.cnn(images)
-        outputs = self.lstm(features, captions, lengths)
+        outputs = self.lstm(features, captions)
         return outputs
 
+
     def caption_image(self, image, vocabulary, max_length=50):
-        features = self.cnn(image).unsqueeze(0)
-        result_caption = self.lstm.sample(features)[0]
+        with torch.no_grad():
+            features = self.cnn(image).unsqueeze(0)
+            result_caption = self.lstm.sample(features)[0]
         
-        return [vocabulary.itos[idx.item()] for idx in result_caption]
+        return [vocabulary.itos[str(idx.item())] for idx in result_caption]
 
 
 class CaptionWithResnet152AndLstm(nn.Module):
@@ -29,17 +32,19 @@ class CaptionWithResnet152AndLstm(nn.Module):
         self.cnn = Resnet(embed_size, 152)
         self.lstm = Lstm(embed_size, hidden_size, vocab_size, num_layers)
 
-    def forward(self, images, captions, lengths):
+
+    def forward(self, images, captions):
         features = self.cnn(images)
-        outputs = self.lstm(features, captions, lengths)
+        outputs = self.lstm(features, captions)
         return outputs
 
 
-    def caption_image(self, image, vocabulary, max_length=50):
-        features = self.cnn(image).unsqueeze(0)
-        result_caption = self.lstm.sample(features)[0]
-        
-        return [vocabulary.itos[idx.item()] for idx in result_caption]
+    def caption_image(self, image, vocabulary):
+        with torch.no_grad():
+            features = self.cnn(image).unsqueeze(0)
+            result_caption = self.lstm.sample(features)[0]
+
+        return [vocabulary.itos[str(idx.item())] for idx in result_caption]
 
 
 class CaptionWithResnet101AndLstm(nn.Module):
@@ -48,15 +53,16 @@ class CaptionWithResnet101AndLstm(nn.Module):
         self.cnn = Resnet(embed_size, 101)
         self.lstm = Lstm(embed_size, hidden_size, vocab_size, num_layers)
 
-    def forward(self, images, captions, lengths):
+    def forward(self, images, captions):
         features = self.cnn(images)
-        outputs = self.lstm(features, captions, lengths)
+        outputs = self.lstm(features, captions)
         return outputs
 
 
     def caption_image(self, image, vocabulary, max_length=50):
-        features = self.cnn(image).unsqueeze(0)
-        result_caption = self.lstm.sample(features)[0]
+        with torch.no_grad():
+            features = self.cnn(image).unsqueeze(0)
+            result_caption = self.lstm.sample(features)[0]
         
         return [vocabulary.itos[str(idx.item())] for idx in result_caption]
 
@@ -64,17 +70,23 @@ class CaptionWithResnet101AndLstm(nn.Module):
 class CaptionWithResnet18AndLstm(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, num_layers):
         super(CaptionWithResnet18AndLstm, self).__init__()
+        self.max_length=20
         self.cnn = Resnet(embed_size, 18)
-        self.lstm = Lstm(embed_size, hidden_size, vocab_size, num_layers)
+        self.lstm = Lstm(embed_size=embed_size, 
+                         hidden_size=hidden_size, 
+                         vocab_size=vocab_size, 
+                         num_layers=num_layers)
 
-    def forward(self, images, captions, lengths):
+
+    def forward(self, images, captions):
         features = self.cnn(images)
-        outputs = self.lstm(features, captions, lengths)
+        outputs = self.lstm(features, captions)
         return outputs
 
 
-    def caption_image(self, image, vocabulary, max_length=50):
-        features = self.cnn(image).unsqueeze(0)
-        result_caption = self.lstm.sample(features)[0]
-        
+    def caption_image(self, image, vocabulary):
+        with torch.no_grad():
+            features = self.cnn(image).unsqueeze(0)
+            result_caption = self.lstm.sample(features)[0]
+
         return [vocabulary.itos[str(idx.item())] for idx in result_caption]

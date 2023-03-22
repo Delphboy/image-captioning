@@ -1,0 +1,25 @@
+{   
+    "model": "resnet101lstm",
+    "model_save_name": "development",
+    "dataset": {
+        "name": "flickr8k",
+        "root": "/import/gameai-01/eey362/datasets/flickr8k/images",
+        "annotations": "/import/gameai-01/eey362/datasets/flickr8k/captions.txt",
+        "talk_file": "/homes/hps01/image-captioning/datasets/talk_files/flickrtalk.json"
+    },
+
+    "training_parameters":{
+        "batch_size": 8,
+        "num_workers": 4,
+        "shuffle": "True",
+        "pin_memory": "True",
+        "learning_rate": 0.001,
+        "epochs": 10
+    },
+    "is_graph_model": "False",
+    "graph_configurations": {
+        "precomputed_spatial_graph_location": "/homes/hps01/image-captioning/saved_models/flickr_spatial_graphs.pt"
+    },
+    
+    "regime": "train_and_test"
+}

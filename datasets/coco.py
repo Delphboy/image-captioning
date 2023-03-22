@@ -6,6 +6,8 @@ import torch
 from PIL import Image
 from pycocotools.coco import COCO
 from torchvision.datasets import VisionDataset
+from constants import Constants as const
+from datasets.vocabulary import Vocabulary
 
 
 class CocoCaptionsDataset(VisionDataset):
@@ -21,13 +23,14 @@ class CocoCaptionsDataset(VisionDataset):
         self.coco = COCO(annFile)
         self.ids = list(sorted(self.coco.imgs.keys()))
 
-        with open("/homes/hps01/image-captioning/datasets/cocotalk.json", "r") as f:
+        with open(const.TALK_FILE, "r") as f:
             self.coco_talk = json.load(f)
 
-        self.vocab = list(self.coco_talk['ix_to_word'].values())
-        
         # invert a dictionary
-        self.word_to_ix = {v: int(k) for k, v in self.coco_talk["ix_to_word"].items()}
+        self.word_to_ix = {v: int(k) for k, v in self.coco_talk.items()}
+        self.vocab = Vocabulary(5)
+        self.vocab.build_vocabulary(list(self.coco_talk.values()))
+        print()
 
 
     def _load_image(self, id: int) -> Image.Image:
@@ -56,12 +59,11 @@ class CocoCaptionsDataset(VisionDataset):
 
 class CocoBatcher:
     def __init__(self):
-        # TODO: Don't hardcode this path
-        with open("/homes/hps01/image-captioning/datasets/cocotalk.json", "r") as f:
+        with open(const.TALK_FILE, "r") as f:
             self.coco = json.load(f)
 
         # invert a dictionary
-        self.word_to_ix = {v: k for k, v in self.coco["ix_to_word"].items()}
+        self.word_to_ix = {v: k for k, v in self.coco.items()}
 
 
     def coco_ix_to_word(self, ix):

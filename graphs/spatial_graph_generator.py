@@ -1,49 +1,21 @@
 import numpy as np
 import torch
-import torchvision
 import torchvision.transforms as transforms
-import torchvision.transforms.functional as F
-from torch.autograd import Variable
 from torch_geometric.data import Batch, Data
-from torchvision.models import ResNet50_Weights, ResNet101_Weights, resnet50
-from torchvision.models.detection import (FasterRCNN_ResNet50_FPN_V2_Weights,
-                                          fasterrcnn_resnet50_fpn_v2)
+from tqdm import tqdm
 
 from constants import Constants as const
+from factories.data_factory import get_data
+from models.components.vision.object_detectors import FasterRcnnResNet101BoundingBoxes
+from torchvision.ops.boxes import box_iou
 
 
 class SpatialGraphGenerator():
-    def __init__(self):        
-        self.scaler = transforms.Resize((224, 224))
-        self.normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-
-    
-    def _get_iou(self, box1, box2):
-        """
-        Implement the intersection over union (IoU) between box1 and box2
-
-        Arguments:
-            box1 -- first box, numpy array with coordinates (ymin, xmin, ymax, xmax)
-            box2 -- second box, numpy array with coordinates (ymin, xmin, ymax, xmax)
-        """
-        # ymin, xmin, ymax, xmax = box
-
-        y11, x11, y21, x21 = box1
-        y12, x12, y22, x22 = box2
-
-        yi1 = max(y11, y12)
-        xi1 = max(x11, x12)
-        yi2 = min(y21, y22)
-        xi2 = min(x21, x22)
-        inter_area = max(((xi2 - xi1) * (yi2 - yi1)), 0)
-        # Calculate the Union area by using Formula: Union(A,B) = A + B - Inter(A,B)
-        box1_area = (x21 - x11) * (y21 - y11)
-        box2_area = (x22 - x12) * (y22 - y12)
-        union_area = box1_area + box2_area - inter_area
-        # compute the IoU
-        iou = inter_area / union_area
-        return iou
-    
+    def __init__(self, 
+                 embedding_size=256): 
+        self.detector = FasterRcnnResNet101BoundingBoxes(embedding_size).to(const.DEVICE)
+        self.detector.eval()
+   
 
     def _convert_to_pyg(self, nodes, adj_mat, image_prediction):
         node_features = torch.stack([image_prediction['features'][node] for node in nodes])
@@ -67,68 +39,109 @@ class SpatialGraphGenerator():
 
     # TODO: Can we speed this up?
     def _generate_spatial_graph(self, image_prediction):
-        nodes = [i for i in range(image_prediction['boxes'].shape[0])]
+        nodes = [a for a in range(image_prediction['boxes'].shape[0])]
         edges = np.zeros((len(nodes),len(nodes)))
         
-        for i in range(len(nodes)):
-            for j in range(len(nodes)):
-                if i != j:
-                    bbox_a = image_prediction['boxes'][i]
-                    bbox_b = image_prediction['boxes'][j]
+        for a in range(len(nodes)):           
+            for b in range(len(nodes)):
+                if a == b: continue
 
-                    x_a1 = int(bbox_a[0])
-                    y_a1 = int(bbox_a[1])
-                    x_a2 = int(bbox_a[2])
-                    y_a2 = int(bbox_a[3])
+                bbox_a = image_prediction['boxes'][a]
+                bbox_a_x1, bbox_a_y1, bbox_a_x2, bbox_a_y2 = bbox_a
 
-                    x_b1 = int(bbox_b[0])
-                    y_b1 = int(bbox_b[1])
-                    x_b2 = int(bbox_b[2])
-                    y_b2 = int(bbox_b[3])
+                bbox_b = image_prediction['boxes'][b]
+                bbox_b_x1, bbox_b_y1, bbox_b_x2, bbox_b_y2 = bbox_b
 
-                    # Inside
-                    if (x_a1 > x_b1 and x_a2 < x_b2) and (y_a1 > y_b1 and y_a2 < y_b2):
-                        edges[i,j] = 1
-                        continue
+                # bbox_a is in the format [x1, y1, x2, y2]
+                # bbox_b is in the format [x1, y1, x2, y2]
+                # x1, y1 is the top left corner
+                # x2, y2 is the bottom right corner
 
-                    # Cover
-                    if (x_b1 > x_a1 and x_b2 < x_a2) and (y_b1 > y_a1 and y_b2 < y_a2):
-                        edges[i,j] = 2
-                        continue
 
-                    # Overlap
-                    iou = self._get_iou(bbox_a, bbox_b)
-                    if iou >= 0.5:
-                        edges[i,j] = 3
-                        continue
-                    else:
-                        centroid_a = np.array([int(x_a1 + abs(x_a1 - x_a2) / 2),int(y_a1 + abs(y_a1 - y_a2) / 2)])
-                        centroid_b = np.array([int(x_b1 + abs(x_b1 - x_b2) / 2),int(y_b1 + abs(y_b1 - y_b2) / 2)])
+                # Check if bbox_a is inside of bbox_b
+                if bbox_a_x1 > bbox_b_x1 and bbox_a_y1 > bbox_b_y1 and bbox_a_x2 < bbox_b_x2 and bbox_a_y2 < bbox_b_y2:
+                    edges[a][b] = 1
 
-                        vecAB = centroid_b - centroid_a
-                        #deg = np.angle([vec[0] + vec[1]j], deg=True)
+                # Check if bbox_a is outside of bbox_b
+                elif bbox_a_x1 < bbox_b_x1 and bbox_a_y1 < bbox_b_y1 and bbox_a_x2 > bbox_b_x2 and bbox_a_y2 > bbox_b_y2:
+                    edges[a][b] = 2
 
-                        hoz = np.array([1, 0])
+                # Check if bbox_a and bbox_b have an IoU of >= 0.5
+                elif box_iou(bbox_a.unsqueeze(0), bbox_b.unsqueeze(0)) >= 0.5:
+                    edges[a][b] = 3
 
-                        inner = np.inner(vecAB, hoz)
-                        norms = np.linalg.norm(vecAB) * np.linalg.norm(hoz)
+                else:
+                    centroid_a = torch.tensor([bbox_a_x1 + abs(bbox_a_x1 - bbox_a_x2) / 2, bbox_a_y1 + abs(bbox_a_y1 - bbox_a_x2) / 2])
+                    centroid_b = torch.tensor([bbox_b_x1 + abs(bbox_b_x1 - bbox_b_x2) / 2, bbox_b_y1 + abs(bbox_b_y1 - bbox_b_y2) / 2])
 
-                        cos = inner / norms
-                        rad = np.arccos(np.clip(cos, -1.0, 1.0))
-                        deg = np.rad2deg(rad)            
+                    vecAB = centroid_b - centroid_a
+                    hoz = torch.tensor([1, 0], dtype=torch.float)
 
-                        edges[i,j] = np.ceil(deg/45) + 3
-                        continue
-        
+                    inner = torch.inner(vecAB, hoz)
+                    norms = torch.linalg.norm(vecAB) * torch.linalg.norm(hoz)
+
+                    cos = inner / norms
+                    rad = torch.acos(torch.clamp(cos, -1.0, 1.0))
+                    deg = torch.rad2deg(rad)
+
+                    edges[a,b] = torch.ceil(deg/45) + 3
+                           
         return self._convert_to_pyg(nodes, edges, image_prediction)
 
 
-    def generate_spatial_graph_for_batch(self, image_predictions):
+    def generate_spatial_graph_for_batch(self, image_batch):
         graphs = []
+        image_predictions = self.detector(image_batch)
         for image_prediction in image_predictions:
             graphs.append(self._generate_spatial_graph(image_prediction))
 
         batch = Batch.from_data_list(graphs)
         return batch
         
-    
+
+def generate_spatial_graphs_on_flickr8k():
+    const.DATASET = 'flickr8k'
+    const.ROOT = "/import/gameai-01/eey362/datasets/flickr8k/images"
+    const.ANNOTATIONS = "/import/gameai-01/eey362/datasets/flickr8k/captions.txt"
+    const.TALK_FILE = "/homes/hps01/image-captioning/datasets/flickrtalk.json"
+    const.BATCH_SIZE = 1
+    const.NUM_WORKERS = 0
+    const.SHUFFLE = False
+
+    save_loc = 'saves/precomputed_graphs/flickr8k_spatial.pt'
+
+    train_loader, test_loader, train_dataset, test_dataset, padding = get_data('flickr8k')
+
+    generator = SpatialGraphGenerator()
+    results = {}
+
+    idx = 0
+    for data in tqdm(iter(train_dataset), total=len(train_dataset), leave=False):
+        images = data[0].to(const.DEVICE)
+        images = images.unsqueeze(0)
+
+        index = train_loader.dataset.indices[idx]
+        id = train_loader.dataset.dataset.imgs[index]
+        
+        image_prediction = generator.detector(images)[0]
+        spatial_graph = generator._generate_spatial_graph(image_prediction)
+        
+        results[id] = spatial_graph
+        idx += 1
+
+    idx = 0
+    for data in tqdm(iter(test_dataset), total=len(test_dataset), leave=False):
+        images = data[0].to(const.DEVICE)
+        images = images.unsqueeze(0)
+
+        index = test_loader.dataset.indices[idx]
+        id = test_loader.dataset.dataset.imgs[index]
+        
+        image_prediction = generator.detector(images)[0]
+        spatial_graph = generator._generate_spatial_graph(image_prediction)
+        
+        results[id] = spatial_graph
+        idx += 1
+
+    print()
+    torch.save(results, save_loc)

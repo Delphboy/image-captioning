@@ -5,10 +5,14 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Main",
+            "name": "Development",
             "type": "python",
             "request": "launch",
             "program": "main.py",
+            "args": [
+                "--file",
+                "/homes/hps01/image-captioning/config_files/server_development.json",
+              ],
             "console": "integratedTerminal",
             "justMyCode": true
         },

@@ -1,0 +1,29 @@
+{
+    // See https://go.microsoft.com/fwlink/?LinkId=733558
+    // for the documentation about the tasks.json format
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Run Config File",
+            "type": "shell",
+            "command": "/homes/hps01/image-captioning/.venv/bin/python main.py --file /homes/hps01/image-captioning/config_files/${input:config_file}",
+            "problemMatcher": []
+        }
+    ],
+    "inputs": [
+        {
+            "type": "pickString",
+            "id": "config_file",
+            "description": "Which config file do you want to run?",
+            "options": [
+                "server_development.json",
+                "server_flickr8k_inceptionv3lstm.json",
+                "server_flickr8k_resnet18lstm.json",
+                "server_flickr8k_resnet52lstm.json",
+                "server_flickr8k_resnet101lstm.json",
+                "server_flickr8k_spatialgcn.json",
+            ],
+            "default": "server_flickr8k_resnet18lstm"
+        },
+    ]
+}

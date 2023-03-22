@@ -6,17 +6,17 @@ from torchvision.models.detection import (FasterRCNN_ResNet50_FPN_V2_Weights,
 from models.components.vision.encoders import Resnet
 
 class FasterRcnnResNet101BoundingBoxes(nn.Module):
-    def __init__(self, embedding_size):
+    def __init__(self, 
+                 embedding_size=256):
         super(FasterRcnnResNet101BoundingBoxes, self).__init__()
         self.embedding_size = embedding_size
 
-        self.faster_rcnn_weights = FasterRCNN_ResNet50_FPN_V2_Weights.COCO_V1
-        # self.faster_rcnn = fasterrcnn_resnet50_fpn_v2(weights=self.faster_rcnn_weights, 
-        #                                               box_score_thresh=0.5)
-        self.faster_rcnn = fasterrcnn_resnet50_fpn_v2(weights=self.faster_rcnn_weights)
+        self.faster_rcnn_weights = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT
+        self.faster_rcnn = fasterrcnn_resnet50_fpn_v2(weights=self.faster_rcnn_weights, 
+                                                      box_score_thresh=0.7)
 
         self.resnet_101 = Resnet(self.embedding_size, size=101)
-        self.resnet_101 = self.resnet_101.eval()
+        self.resnet_101.eval()
 
 
     def _detect_objects(self, imgs):
@@ -34,7 +34,7 @@ class FasterRcnnResNet101BoundingBoxes(nn.Module):
         for i, prediction in enumerate(predictions):
             features = []
             cropped_imgs = []
-            
+            debug_labels = [self.faster_rcnn_weights.meta["categories"][i] for i in prediction["labels"]]
             if (len(prediction['boxes']) == 0):
                 # Treat the whole image as a single node
                 print('Generated single node for image')
@@ -42,20 +42,14 @@ class FasterRcnnResNet101BoundingBoxes(nn.Module):
             
             # TODO: Can we improve the cropping?
             for box in prediction['boxes']:
-                # Crop the image to the bounding box (xmin, ymin, xmax, ymax)
-                # top, left, bottom, right = box
-                # cropped_img = F.crop(imgs[i], int(top), int(left), int(bottom - top), int(right - left))
-                
                 xmin, ymin, xmax, ymax = box
                 height = int(ymax) - int(ymin)
-                if height == 0: height = 1
-                
                 width = int(xmax) - int(xmin)
-                if width == 0: width = 1 # TODO: This is a hack to fix the bug in the next line
+
                 cropped_img = F.crop(imgs[i], int(ymin), int(xmin), height, width)
 
                 # Resize the image to 299x299
-                cropped_img = F.resize(cropped_img, (299, 299)) # BUG: RuntimeError: Input and output sizes should be greater than 0, but got input (H: 0, W: 113) output (H: 299, W: 299)
+                cropped_img = F.resize(cropped_img, (299, 299))
                 cropped_imgs.append(cropped_img)
 
             # Get the resnet features for the cropped image
@@ -63,3 +57,26 @@ class FasterRcnnResNet101BoundingBoxes(nn.Module):
             prediction['features'] = self.resnet_101(crops)
 
         return predictions
+
+
+
+
+class Detector():
+    def __init__(self, embedding_size) -> None:
+        self.weights = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT
+        self.model = fasterrcnn_resnet50_fpn_v2(weights=self.weights, box_score_thresh=0.7)
+        self.model.to('cuda')
+        self.model.eval()
+    
+
+    def _detect_objects(self, imgs):
+        # Step 2: Initialize the inference transforms
+        preprocess = self.weights.transforms()
+
+        # Step 3: Apply inference preprocessing transforms
+        batch = preprocess(imgs)
+        
+        # Step 4: Use the model and visualize the prediction
+        prediction = self.model(batch)[0]
+
+        return prediction

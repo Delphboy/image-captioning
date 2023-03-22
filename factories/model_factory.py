@@ -75,7 +75,7 @@ def get_model(model_name: str,
         raise Exception(f"The model name {model_name} is not supported by the factory. Supported models are {MODELS.keys()}")
 
     model = MODELS[model_name](vocab_size, embed_size, hidden_size, num_lstm_layers)
-    # model= nn.DataParallel(model)
+    # model= nn.DataParallel(model) # TODO: Fix multi-gpu training
     model.to(const.DEVICE)
 
     return model

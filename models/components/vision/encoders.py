@@ -33,20 +33,28 @@ class Resnet(nn.Module):
         with torch.no_grad():
             features = self.resnet(images)
         features = features.reshape(features.size(0), -1)
-        features = self.bn(self.linear(features))
+        features = self.linear(features)
+        if features.shape[0] > 1:
+            features = self.bn(features)
         return features
 
-
+   
 class InceptionV3(nn.Module):
-    def __init__(self, embed_size, train_CNN=False):
+    def __init__(self, embed_size, is_cnn_training=False):
         super(InceptionV3, self).__init__()
-        self.train_CNN = train_CNN
+        self.is_cnn_training = is_cnn_training
         
         self.inception = models.inception_v3(weights=Inception_V3_Weights.IMAGENET1K_V1, aux_logits=True)
         self.inception.fc = nn.Linear(self.inception.fc.in_features, embed_size)
         self.relu = nn.ReLU()
         self.times = []
         self.dropout = nn.Dropout(0.5)
+
+        for name, param in self.inception.named_parameters():
+            if "fc.weight" in name or "fc.bias" in name:
+                param.requires_grad = True
+            else:
+                param.requires_grad = is_cnn_training
 
     def forward(self, images):
         features = self.inception(images)
