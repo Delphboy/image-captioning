@@ -1,6 +1,6 @@
 {   
     "model": "spatialgcn",
-    "model_save_name": "spatialgcn_50_epochs",
+    "model_save_name": "spatialgcn_50_epochs_with_weights",
     "dataset": {
         "name": "flickr8k",
         "root": "/import/gameai-01/eey362/datasets/flickr8k/images",
@@ -18,7 +18,7 @@
     },
     "is_graph_model": "True",
     "graph_configurations": {
-        "precomputed_spatial_graph_location": "/homes/hps01/image-captioning/saves/precomputed_graphs/spatial_graphs_flickr8k.pt"
+        "precomputed_spatial_graph_location": "/homes/hps01/image-captioning/saves/precomputed_graphs/spatial_graphs_flickr8k_with_weights.pt"
     },
     
     "regime": "train_and_test"

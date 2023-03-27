@@ -1,3 +1,4 @@
+import json
 import numpy as np
 import torch
 import torchvision.transforms as transforms
@@ -15,12 +16,14 @@ class SpatialGraphGenerator():
                  embedding_size=256): 
         self.detector = FasterRcnnResNet101BoundingBoxes(embedding_size).to(const.DEVICE)
         self.detector.eval()
+        self.relationship_weights = self._load_relationship_weights()
    
 
-    def _convert_to_pyg(self, nodes, adj_mat, image_prediction):
+    def _convert_to_pyg(self, nodes, adj_mat, image_prediction, include_relationship_weights=False):
         node_features = torch.stack([image_prediction['features'][node] for node in nodes])
         node_features = node_features.squeeze(1)
         node_features = node_features.to(const.DEVICE)
+
 
         froms = []
         tos = []
@@ -28,17 +31,35 @@ class SpatialGraphGenerator():
         for i in range(len(adj_mat)):
             from_edge = adj_mat[i]
             for j in range(len(from_edge)):
+                if i == j: continue
                 froms.append(i)
                 tos.append(j)
-                edge_attrs.append([adj_mat[i][j]])
+                if include_relationship_weights:
+                    relationship_weight = 0.0
+                    if len(image_prediction['labels']) > 0:
+                        from_obj = image_prediction['labels'][i]
+                        to_obj = image_prediction['labels'][j]
+                        key = f"({from_obj}, {to_obj})"
+                        if key in self.relationship_weights.keys():
+                            relationship_weight = self.relationship_weights[key]
+                    edge_attrs.append([adj_mat[i][j], relationship_weight])
+                else:
+                    edge_attrs.append([adj_mat[i][j]])
 
         edges = torch.stack([torch.tensor(froms), torch.tensor(tos)])
         edge_attrs = torch.tensor(edge_attrs).to(const.DEVICE)
 
         return Data(x=node_features, edge_index=edges, edge_attr=edge_attrs).to(const.DEVICE)
 
+
+    def _load_relationship_weights(self):
+        with open('datasets/relationship_weights.json') as f:
+            relationship_weights = json.load(f)
+        return relationship_weights
+
+
     # TODO: Can we speed this up?
-    def _generate_spatial_graph(self, image_prediction):
+    def _generate_spatial_graph(self, image_prediction, include_relationship_weights=False):
         nodes = [a for a in range(image_prediction['boxes'].shape[0])]
         edges = np.zeros((len(nodes),len(nodes)))
         
@@ -51,12 +72,6 @@ class SpatialGraphGenerator():
 
                 bbox_b = image_prediction['boxes'][b]
                 bbox_b_x1, bbox_b_y1, bbox_b_x2, bbox_b_y2 = bbox_b
-
-                # bbox_a is in the format [x1, y1, x2, y2]
-                # bbox_b is in the format [x1, y1, x2, y2]
-                # x1, y1 is the top left corner
-                # x2, y2 is the bottom right corner
-
 
                 # Check if bbox_a is inside of bbox_b
                 if bbox_a_x1 > bbox_b_x1 and bbox_a_y1 > bbox_b_y1 and bbox_a_x2 < bbox_b_x2 and bbox_a_y2 < bbox_b_y2:
@@ -86,7 +101,10 @@ class SpatialGraphGenerator():
 
                     edges[a,b] = torch.ceil(deg/45) + 3
                            
-        return self._convert_to_pyg(nodes, edges, image_prediction)
+        return self._convert_to_pyg(nodes, 
+                                    edges, 
+                                    image_prediction, 
+                                    include_relationship_weights)
 
 
     def generate_spatial_graph_for_batch(self, image_batch):
@@ -99,7 +117,7 @@ class SpatialGraphGenerator():
         return batch
         
 
-def generate_spatial_graphs_on_flickr8k():
+def generate_spatial_graphs_on_flickr8k(include_relationship_weights=False):
     const.DATASET = 'flickr8k'
     const.ROOT = "/import/gameai-01/eey362/datasets/flickr8k/images"
     const.ANNOTATIONS = "/import/gameai-01/eey362/datasets/flickr8k/captions.txt"
@@ -108,7 +126,10 @@ def generate_spatial_graphs_on_flickr8k():
     const.NUM_WORKERS = 0
     const.SHUFFLE = False
 
-    save_loc = 'saves/precomputed_graphs/flickr8k_spatial.pt'
+    if include_relationship_weights:
+        save_loc = 'saves/precomputed_graphs/flickr8k_spatial_with_weights.pt'
+    else:
+        save_loc = 'saves/precomputed_graphs/flickr8k_spatial.pt'
 
     train_loader, test_loader, train_dataset, test_dataset, padding = get_data('flickr8k')
 
@@ -124,7 +145,7 @@ def generate_spatial_graphs_on_flickr8k():
         id = train_loader.dataset.dataset.imgs[index]
         
         image_prediction = generator.detector(images)[0]
-        spatial_graph = generator._generate_spatial_graph(image_prediction)
+        spatial_graph = generator._generate_spatial_graph(image_prediction, include_relationship_weights)
         
         results[id] = spatial_graph
         idx += 1

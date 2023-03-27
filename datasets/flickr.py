@@ -79,6 +79,7 @@ class Flickr8kDatasetWithSpatialGraphs(Flickr8kDataset):
         img_id = self.imgs[index]
         img, captions = super().__getitem__(index)
         graph = self.graphs[img_id]
+        graph.edge_index = graph.edge_index.to(torch.float32)
         # print(f'debug: Giving graph for {index} -> {img_id}')
         return img, captions, graph
 

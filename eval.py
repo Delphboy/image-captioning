@@ -7,10 +7,7 @@ from metrics.caption_metrics import bleu_score
 from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 
-from torchvision.utils import save_image
-
-DEBUG=False
-
+DEBUG=False 
 
 def evaluate_graph_caption_model(model: nn.Module,
                            loader: DataLoader,

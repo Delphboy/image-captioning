@@ -20,24 +20,12 @@ class CaptionWithSpatialGraph(nn.Module):
     
     def forward(self, images, captions, spatial_graphs):    
         # Apply GCN
-        features = self.gcn(spatial_graphs.x, spatial_graphs.edge_index, spatial_graphs.batch)            
+        features = self.gcn(spatial_graphs)            
         
         # Apply LSTM
         outputs = self.lstm(features, captions)
         return outputs
     
-
-    # def forward(self, images, captions):
-    #     # Generate spatial graph
-    #     spatial_graphs = self.spaital_graph_generator.generate_spatial_graph_for_batch(images)        
-    
-    #     # # Apply GCN
-    #     features = self.gcn(spatial_graphs.x, spatial_graphs.edge_index, spatial_graphs.batch) 
-                   
-    #     # Apply LSTM
-    #     outputs = self.lstm(features, captions)
-    #     return outputs
-
 
     def caption_image(self, images, vocabulary, max_length=50):
         with torch.no_grad():
@@ -49,7 +37,7 @@ class CaptionWithSpatialGraph(nn.Module):
 
     def caption_image_precomputed(self, spatial_graphs, vocabulary, max_length=50):
         with torch.no_grad():
-            features = self.gcn(spatial_graphs.x, spatial_graphs.edge_index, spatial_graphs.batch)
+            features = self.gcn(spatial_graphs)
             result_caption = self.lstm.sample(features)
         
         return [vocabulary.itos[str(idx.item())] for idx in result_caption[0]]

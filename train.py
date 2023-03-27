@@ -34,16 +34,17 @@ def train(model: nn.Module,
     for epoch in range(epoch_count):
         epoch_loss= []
         for idx, data in tqdm(enumerate(data_loader), total=len(data_loader), leave=False):
-            optimiser.zero_grad()
-
             # print(f"Processing {data_loader.dataset.dataset.imgs[data_loader.dataset.indices[idx]]}")
             images = data[0].to(const.DEVICE)
             captions = data[1].to(const.DEVICE)
             
+            optimiser.zero_grad()
+            model.zero_grad()
+
             if const.IS_GRAPH_MODEL:
                 graphs = data[3]
                 graphs.cuda()
-                outputs = model(images, captions, graphs)
+                outputs = model(images, captions[:,:-1], graphs)
             else: 
                 outputs = model(images, captions[:,:-1])
             
@@ -51,7 +52,6 @@ def train(model: nn.Module,
                 outputs.reshape(-1, outputs.shape[2]), captions.reshape(-1)
             )
 
-            model.zero_grad()
             loss.backward()
             optimiser.step()
 

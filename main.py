@@ -18,6 +18,7 @@ def load_and_evaluate(model_name: str, model_save_name: str):
 
     model = get_model(model_name, 
                       len(val_dataset.dataset.vocab))
+    
     model = save_and_load_models.load_model(model=model, 
                                             optimiser=None, 
                                             save_name=model_save_name)
