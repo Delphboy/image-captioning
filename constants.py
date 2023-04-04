@@ -17,18 +17,18 @@ class Constants:
         ]
     )
     # These settings are loaded in from the config file in main.py
-    MODEL = None
-    MODEL_SAVE_NAME = None
-    REGIME = None
-    DATASET = None
-    ROOT = None
-    ANNOTATIONS = None
-    TALK_FILE = None
-    BATCH_SIZE = None
-    NUM_WORKERS = None
+    MODEL = ""
+    MODEL_SAVE_NAME = ""
+    REGIME = "train_and_test"
+    DATASET = "flickr8k"
+    ROOT = ""
+    ANNOTATIONS = ""
+    TALK_FILE = ""
+    BATCH_SIZE = 1
+    NUM_WORKERS = 0
     SHUFFLE = False
     PIN_MEMORY = True
-    LEARNING_RATE = None
-    EPOCHS = None
-    IS_GRAPH_MODEL = None
-    PRECOMPUTED_SPATIAL_GRAPHS = None
+    LEARNING_RATE = 3e-4
+    EPOCHS = 1
+    IS_GRAPH_MODEL = False
+    PRECOMPUTED_SPATIAL_GRAPHS = ""
