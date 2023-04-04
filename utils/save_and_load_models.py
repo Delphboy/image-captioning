@@ -42,7 +42,7 @@ def load_model(model: nn.Module,
 
     if optimiser is None:
         model.eval()
-        return model
+        return model, None, None, None
 
     model.train()
     optimiser.load_state_dict(checkpoint['optimizer_state_dict'])

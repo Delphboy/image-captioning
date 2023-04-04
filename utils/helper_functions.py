@@ -1,6 +1,8 @@
+import datetime
 import json
-
 from typing import List
+
+import matplotlib.pyplot as plt
 from PIL import Image
 
 from constants import Constants as const
@@ -60,3 +62,15 @@ def caption_array_to_string(array: List[str]) -> str:
             caption += "."
 
     return caption
+
+
+def plot_training_loss(epochs, loss):
+    plt.plot(epochs, loss)
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+
+    now = datetime.datetime.now()
+    now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
+
+    plt.savefig(f'saves/loss_charts/loss-{const.MODEL_SAVE_NAME}-{now_str}.png')
+

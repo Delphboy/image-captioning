@@ -1,5 +1,4 @@
 import argparse
-import os
 
 import torch.nn as nn
 import torch.optim as optim
@@ -19,9 +18,9 @@ def load_and_evaluate(model_name: str, model_save_name: str):
     model = get_model(model_name, 
                       len(val_dataset.dataset.vocab))
     
-    model = save_and_load_models.load_model(model=model, 
-                                            optimiser=None, 
-                                            save_name=model_save_name)
+    model, _, _, _ = save_and_load_models.load_model(model=model, 
+                                                     optimiser=None, 
+                                                     save_name=model_save_name)
     model.eval()
 
     if const.IS_GRAPH_MODEL:
@@ -43,9 +42,14 @@ def build_and_train_model() -> None:
 
     cross_entropy = nn.CrossEntropyLoss(ignore_index=pad_index)
     adam_optimiser = optim.Adam(captioning_model.parameters(), lr=const.LEARNING_RATE)
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(adam_optimiser, 
+                                                     patience=3,
+                                                     factor=0.1,
+                                                     verbose=True)
 
     trained, epoch, loss = trainer.train(model=captioning_model, 
                                         optimiser=adam_optimiser, 
+                                        scheduler=scheduler,
                                         loss_function=cross_entropy, 
                                         data_loader=train_loader, 
                                         epoch_count=const.EPOCHS)

@@ -1,7 +1,5 @@
-import datetime
 from typing import Any
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch.nn as nn
 import torch.optim as optim
@@ -9,21 +7,12 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 
 from constants import Constants as const
-
-
-def plot_training_loss(epochs, loss):
-    plt.plot(epochs, loss)
-    plt.xlabel("Epochs")
-    plt.ylabel("Loss")
-
-    now = datetime.datetime.now()
-    now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
-
-    plt.savefig(f'saves/loss_charts/loss-{const.MODEL_SAVE_NAME}-{now_str}.png')
+from utils.helper_functions import plot_training_loss
 
 
 def train(model: nn.Module,
           optimiser: optim.Optimizer,
+          scheduler: optim.lr_scheduler.ReduceLROnPlateau,
           loss_function: Any,
           data_loader: DataLoader,
           epoch_count: int=10):
@@ -58,10 +47,10 @@ def train(model: nn.Module,
             epoch_loss.append(loss.item())
 
         epoch_loss = sum(epoch_loss)/len(epoch_loss)
+        scheduler.step(epoch_loss)
+
         print(f"Loss for epoch {epoch+1}/{epoch_count} | {epoch_loss}")
         loss_vals.append(epoch_loss)
-
-    
     
     plot_training_loss(np.linspace(1, epoch_count, epoch_count).astype(int), loss_vals)
 
