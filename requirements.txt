@@ -27,6 +27,8 @@ Markdown==3.4.1
 MarkupSafe==2.1.2
 matplotlib==3.6.3
 murmurhash==1.0.9
+mypy==1.1.1
+mypy-extensions==1.0.0
 nltk==3.8.1
 numpy==1.24.1
 oauthlib==3.2.2
@@ -63,6 +65,7 @@ tensorboard-data-server==0.6.1
 tensorboard-plugin-wit==1.8.1
 thinc==8.1.7
 threadpoolctl==3.1.0
+tomli==2.0.1
 torch==1.12.1+cu102
 torch-cluster==1.6.0+pt112cu102
 torch-geometric==2.2.0

@@ -22,27 +22,25 @@ module load cuda/10.2-cudnn8.3.0
 
 Specific `torch` install command: `pip install torch==1.12.1+cu102 torchvision==0.13.1+cu102 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu102`
 
-### Data Set
+### Datasets
 
-Currently, the code runs on the Flickr8k data set. The main download link has died, so download with the following commands
+Current datasets supported:
+- Flickr8K (`name: "flickr8k"`)
+- COCO (`name: "coco"`)
+- COCO with Karpathy Split (`name: "coco_karpathy"`)
 
-```bash
-mkdir flickr8k
-cd flickr8k
+1. In `datasets/download_scripts` there are a collection of bash scripts for downloading the required datasets. Run the script in the directory you wish to install the dataset to.
+2. Update the `dataset` section of the JSON configuration file being run. Note that the `talkfile` will be generated if it doesn't already exist. Name needs to correspond to one of the supported datasets in `data_factory.py`. See example below
 
-wget -c https://github.com/jbrownlee/Datasets/releases/download/Flickr8k/Flickr8k_Dataset.zip
-unzip Flickr8k_Dataset.zip
-
-mv Flicker8k_Dataset/ images/
-
-rm Flickr8k_Dataset.zip 
-rm -rf __MACOSX
-
-wget https://gist.githubusercontent.com/Delphboy/4f0ec8a9fd2c3c12eb2df820963176e7/raw/ff2cb0e84f461f9f8efa298aec40dfb94ab8417b/flickr8k_captions.txt
-
-mv flickr8k_captions.txt captions.txt
+```json
+"dataset": {
+    "name": "flickr8k",
+    "root": "/location/to/flickr8k/images",
+    "annotations": "/location/to/flickr8k/captions.txt",
+    "talk_file": "/location/to/flickr8k/flickrtalk.json"
+}
 ```
 
 ## Running the Code
 
-`python3 main.py`
+`python3 main.py --file <path to config.json>`
