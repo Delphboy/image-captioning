@@ -8,5 +8,8 @@
         "**/Thumbs.db": true,
         "**/__pycache__": true,
         "**/.venv": true
-      }
+      },
+      "python.linting.enabled": true,
+      "python.linting.mypyEnabled": true,
+      "python.linting.lintOnSave": true
 }

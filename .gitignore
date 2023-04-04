@@ -130,3 +130,5 @@ dmypy.json
 
 # Don't sync saved models
 saves/
+splits/
+talk_files/

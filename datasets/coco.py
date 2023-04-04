@@ -3,9 +3,13 @@ import os
 from typing import Any, Callable, List, Optional, Tuple
 
 import torch
+import torchvision.transforms as transforms
 from PIL import Image
 from pycocotools.coco import COCO
+from torch.utils.data import Dataset
 from torchvision.datasets import VisionDataset
+from torchvision.io.image import read_image
+
 from constants import Constants as const
 from datasets.vocabulary import Vocabulary
 
@@ -115,3 +119,57 @@ class CocoBatcher:
             end = lengths[i]
             targets[i, :end] = cap[:end]  
         return images, targets, torch.tensor(lengths, dtype=torch.int64)
+
+
+class CocoKarpathy(Dataset):
+    def __init__(self, 
+                 root_dir: str, # /import/gameai-01/eey362/datasets/coco/images
+                 captions_file: str, # splits/dataset_coco.json
+                 transform:transforms.Compose=None, 
+                 freq_threshold: int=5,
+                 split: str='train'):
+        
+        self.root_dir = root_dir
+        self.captions_file = captions_file
+        self.transform = transform
+        self.freq_threshold = freq_threshold
+        assert split in ['train', 'val', 'test'], f'Split must be train, val or test. Received: {split}'
+        self.split = split
+
+        # captions_file is a json file. Load it into a dictionary
+        with open(self.captions_file, 'r') as f:
+            self.captions_file = json.load(f)
+
+        self.data = {}
+        captions = []
+        for image in self.captions_file['images']:
+            if image['split'] == self.split:
+                self.data[image['cocoid']] = {
+                    'dir': image['filepath'],
+                    'filename': image['filename'],#.split('_')[2],
+                    'sentences': [sentence['raw'] for sentence in image['sentences']]
+                }
+            
+            captions += [sentence['raw'] for sentence in image['sentences']]
+
+        self.ids = list(self.data.keys())
+
+        self.vocab = Vocabulary(freq_threshold)
+        self.vocab.build_vocabulary(captions)
+
+
+    def __getitem__(self, index):
+        data_id = self.ids[index]
+        data = self.data[data_id]
+        image = read_image(os.path.join(self.root_dir, data['dir'], data['filename']))
+        captions = data['sentences']
+
+        if self.transform is not None:
+            image = self.transform(image)
+
+        return image, captions
+
+
+    def __len__(self):
+        return len(self.ids)
+

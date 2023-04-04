@@ -20,7 +20,7 @@ class Flickr8kDataset(Dataset):
                 root_dir:str, 
                 captions_file: str, 
                 transform:transforms.Compose=None, 
-                freq_threshold: int=5):
+                freq_threshold: int=5) -> None:
         
         
         self.root_dir = root_dir
@@ -65,7 +65,7 @@ class Flickr8kDatasetWithSpatialGraphs(Flickr8kDataset):
                 root_dir:str, 
                 captions_file: str, 
                 transform:transforms.Compose=None, 
-                freq_threshold: int=5):
+                freq_threshold: int=5) -> None:
         
         super().__init__(root_dir, captions_file, transform, freq_threshold)
         self.graph_dir = const.PRECOMPUTED_SPATIAL_GRAPHS
@@ -84,10 +84,10 @@ class Flickr8kDatasetWithSpatialGraphs(Flickr8kDataset):
         return img, captions, graph
 
 
-class Flickr8kBatcher:
+class CaptionBatcher:
     def __init__(self, pad_idx):
         self.pad_idx = pad_idx
-        self.vocab = Vocabulary(5)
+        self.vocab = Vocabulary(5) # TODO: This should come from a config file
         self.vocab.build_vocabulary()
 
 
@@ -124,7 +124,7 @@ class Flickr8kBatcher:
         return images, captions_tensor, torch.tensor(lengths, dtype=torch.int64)
 
 
-class Flickr8kGraphsBatcher(Flickr8kBatcher):
+class GraphsCaptionBatch(CaptionBatcher):
     def __init__(self, pad_idx):
         super().__init__(pad_idx)
 

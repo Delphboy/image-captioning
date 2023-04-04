@@ -22,6 +22,7 @@
                 "server_flickr8k_resnet52lstm.json",
                 "server_flickr8k_resnet101lstm.json",
                 "server_flickr8k_spatialgcn.json",
+                "server_flickr8k_spatialgcn_with_weights.json",
             ],
             "default": "server_flickr8k_resnet18lstm"
         },
