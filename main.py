@@ -8,40 +8,51 @@ import train as trainer
 from constants import Constants as const
 from factories.data_factory import get_data
 from factories.model_factory import get_model
-from utils import save_and_load_models
-from utils.helper_functions import parse_file
+from utils.helper_functions import parse_config_file
+from utils.save_and_load_models import *
 
 
 def load_and_evaluate(model_name: str, model_save_name: str):        
-    _, val_loader, _, val_dataset, _ = get_data(const.DATASET)
+    train_loader, val_loader, test_loader, dataset, val_dataset, test_dataset, pad_index = get_data(const.DATASET)
 
-    model = get_model(model_name, 
-                      len(val_dataset.dataset.vocab))
+    vocab_size = len(dataset.vocab)
+    model = get_model(model_name=const.MODEL, 
+                                 vocab_size=vocab_size,
+                                 embed_size=2048,
+                                 hidden_size=1000)
     
-    model, _, _, _ = save_and_load_models.load_model(model=model, 
-                                                     optimiser=None, 
-                                                     save_name=model_save_name)
+    model, _, _, _ = load_model(model=model, 
+                                optimiser=None, 
+                                save_name=model_save_name)
     model.eval()
 
     if const.IS_GRAPH_MODEL:
-        eval.evaluate_graph_caption_model(model, val_loader, val_dataset)
+        eval.evaluate_graph_caption_model(model, test_loader, test_dataset)
     else:
-        eval.evaluate_caption_model(model, val_loader, val_dataset)
+        eval.evaluate_caption_model(model, test_loader, test_dataset)
 
 
 
 def build_and_train_model() -> None:
     print(f"Set device to: {const.DEVICE}\n")
 
-    dataset = None
-    train_loader, _, dataset, _, pad_index = get_data(const.DATASET)
+    train_loader, val_loader, test_loader, train_dataset, val_dataset, test_dataset, pad_index = get_data(const.DATASET)
+    
+    # FIX: This is a hack to get the validation set to be the test set
+    train_loader = val_loader
+    val_loader = test_loader
 
     # Build Model
-    vocab_size = len(dataset.dataset.vocab)
-    captioning_model = get_model(const.MODEL, vocab_size)
+    vocab_size = len(train_dataset.vocab)
+    captioning_model = get_model(model_name=const.MODEL, 
+                                 vocab_size=vocab_size,
+                                 embed_size=2048,
+                                 hidden_size=1000)
 
     cross_entropy = nn.CrossEntropyLoss(ignore_index=pad_index)
-    adam_optimiser = optim.Adam(captioning_model.parameters(), lr=const.LEARNING_RATE)
+    adam_optimiser = optim.Adam(captioning_model.parameters(), 
+                                lr=const.LEARNING_RATE, 
+                                weight_decay=5e-4)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(adam_optimiser, 
                                                      patience=3,
                                                      factor=0.1,
@@ -51,14 +62,15 @@ def build_and_train_model() -> None:
                                         optimiser=adam_optimiser, 
                                         scheduler=scheduler,
                                         loss_function=cross_entropy, 
-                                        data_loader=train_loader, 
+                                        train_data_loader=train_loader, 
+                                        val_data_loader=val_loader,
                                         epoch_count=const.EPOCHS)
 
-    save_and_load_models.save_model_checkpoint(trained, 
-                                               adam_optimiser, 
-                                               epoch, 
-                                               loss, 
-                                               save_name=const.MODEL_SAVE_NAME)
+    save_model_checkpoint(trained, 
+                          adam_optimiser, 
+                          epoch, 
+                          loss, 
+                          save_name=const.MODEL_SAVE_NAME)
     print('Model fully trained!')
 
 
@@ -75,7 +87,7 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
-    parse_file(args.file[0])
+    parse_config_file(args.file[0])
 
     if const.REGIME.__contains__("train"):
         build_and_train_model()

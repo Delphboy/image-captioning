@@ -68,7 +68,7 @@ def get_model(model_name: str,
                 vocab_size:int, 
                 embed_size: Optional[int]=256, 
                 hidden_size: Optional[int]=256, 
-                num_lstm_layers: Optional[int]=1) -> nn.Module:
+                num_lstm_layers: Optional[int]=2) -> nn.Module:
     model_name = model_name.lower()
     
     if model_name not in MODELS:

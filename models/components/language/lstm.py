@@ -2,37 +2,42 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
+from constants import Constants as const
 
 class Lstm(nn.Module):
     def __init__(self, 
-                 embed_size: int, 
+                 embedding_size: int, 
                  hidden_size: int, 
                  vocab_size: int, 
                  num_layers: int, 
                  max_seq_length: Optional[int]=20):
         
         super(Lstm, self).__init__()
-        self.embed_size = embed_size
+        self.embedding_size = embedding_size
         self.hidden_size = hidden_size
-        self.num_layers = num_layers
         self.vocab_size = vocab_size
         self.num_layers = num_layers
-        self.max_seg_length = max_seq_length
+        self.max_seq_len = max_seq_length
 
-        self.embed = nn.Embedding(vocab_size, embed_size)
-        self.lstm = nn.LSTM(input_size=self.embed_size, 
-                            hidden_size=self.hidden_size, 
-                            num_layers=self.num_layers, 
-                            batch_first=True)
-        self.linear = nn.Linear(self.hidden_size, self.vocab_size)
+        self.embedding = nn.Embedding(vocab_size, embedding_size)
+        self.lstm = nn.LSTM(embedding_size, 
+                            hidden_size, 
+                            num_layers, 
+                            batch_first=True,
+                            dropout=0.2)
+        self.linear = nn.Linear(hidden_size, vocab_size)
+        self.dropout = nn.Dropout(0.2)
 
 
     def forward(self, features, captions):
-        embeddings = self.embed(captions)
-        embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
-        hiddens, _ = self.lstm(embeddings)
-        outputs = self.linear(hiddens)
-
+        features = features.unsqueeze(1)
+        
+        embeddings = self.embedding(captions)
+        embeddings = torch.cat((features, embeddings), dim=1)
+        
+        hidden, _ = self.lstm(embeddings)
+        outputs = self.linear(hidden)
+        outputs = self.dropout(outputs)
         return outputs
 
 
@@ -43,12 +48,13 @@ class Lstm(nn.Module):
         else:
             inputs = features
         
-        for i in range(self.max_seg_length):
+        for i in range(self.max_seq_length):
             hiddens, states = self.lstm(inputs, states)          # hiddens: (batch_size, 1, hidden_size)
             outputs = self.linear(hiddens.squeeze(1))            # outputs:  (batch_size, vocab_size)
             predicted = outputs.argmax(1)                        # predicted: (batch_size)
             sampled_ids.append(predicted)
-            inputs = self.embed(predicted)                       # inputs: (batch_size, embed_size)
+            inputs = self.embedding(predicted)                       # inputs: (batch_size, embed_size)
             inputs = inputs.unsqueeze(1)                         # inputs: (batch_size, 1, embed_size)
         sampled_ids = torch.stack(sampled_ids, 1)                # sampled_ids: (batch_size, max_seq_length)
         return sampled_ids
+

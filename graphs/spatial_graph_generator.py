@@ -1,7 +1,6 @@
 import json
 import numpy as np
 import torch
-import torchvision.transforms as transforms
 from torch_geometric.data import Batch, Data
 from tqdm import tqdm
 
@@ -9,11 +8,12 @@ from constants import Constants as const
 from factories.data_factory import get_data
 from models.components.vision.object_detectors import FasterRcnnResNet101BoundingBoxes
 from torchvision.ops.boxes import box_iou
+from utils.helper_functions import *
 
 
 class SpatialGraphGenerator():
     def __init__(self, 
-                 embedding_size=256): 
+                 embedding_size=2048):
         self.detector = FasterRcnnResNet101BoundingBoxes(embedding_size).to(const.DEVICE)
         self.detector.eval()
         self.relationship_weights = self._load_relationship_weights()
@@ -46,8 +46,14 @@ class SpatialGraphGenerator():
                 else:
                     edge_attrs.append([adj_mat[i][j]])
 
+        if len(froms) == 0 and len(tos) == 0:
+            froms.append(0)
+            tos.append(0)
+            edge_attrs.append([0])
+
+
         edges = torch.stack([torch.tensor(froms), torch.tensor(tos)])
-        edge_attrs = torch.tensor(edge_attrs).to(const.DEVICE)
+        edge_attrs = torch.tensor(edge_attrs, dtype=torch.float).to(const.DEVICE)
 
         return Data(x=node_features, edge_index=edges, edge_attr=edge_attrs).to(const.DEVICE)
 
@@ -100,7 +106,10 @@ class SpatialGraphGenerator():
                     deg = torch.rad2deg(rad)
 
                     edges[a,b] = torch.ceil(deg/45) + 3
-                           
+
+        if len(nodes) == 1:
+            edges[0][0] = 0
+
         return self._convert_to_pyg(nodes, 
                                     edges, 
                                     image_prediction, 
@@ -117,52 +126,91 @@ class SpatialGraphGenerator():
         return batch
         
 
-def generate_spatial_graphs_on_flickr8k(include_relationship_weights=False):
+def generate_spatial_graphs_on_flickr8k(split="train",
+                                        include_relationship_weights=False):
     const.DATASET = 'flickr8k'
     const.ROOT = "/import/gameai-01/eey362/datasets/flickr8k/images"
-    const.ANNOTATIONS = "/import/gameai-01/eey362/datasets/flickr8k/captions.txt"
-    const.TALK_FILE = "/homes/hps01/image-captioning/datasets/flickrtalk.json"
+    const.ANNOTATIONS = "/homes/hps01/image-captioning/datasets/splits/dataset_flickr8k.json"
+    const.TALK_FILE = "/homes/hps01/image-captioning/datasets/talk_files/flickrtalk.json"
     const.BATCH_SIZE = 1
     const.NUM_WORKERS = 0
     const.SHUFFLE = False
 
-    if include_relationship_weights:
-        save_loc = 'saves/precomputed_graphs/flickr8k_spatial_with_weights.pt'
-    else:
-        save_loc = 'saves/precomputed_graphs/flickr8k_spatial.pt'
 
-    train_loader, test_loader, train_dataset, test_dataset, padding = get_data('flickr8k')
+    train_loader, val_loader, test_loader, _, _, _, _ = get_data('flickr8k')
+
+    loaders = {
+        "train": train_loader,
+        "val": val_loader,
+        "test": test_loader
+    }
+
+    assert split in loaders.keys(), f"Split must be one of {loaders.keys()}"
+    loader = loaders[split]
 
     generator = SpatialGraphGenerator()
+
+    if include_relationship_weights:
+        save_name = f"precomputed_graphs/flickr8k_spatial_{split}_with_weights.pt"
+    else:
+        save_name = f"precomputed_graphs/flickr8k_spatial_{split}.pt"
+
     results = {}
 
-    idx = 0
-    for data in tqdm(iter(train_dataset), total=len(train_dataset), leave=False):
-        images = data[0].to(const.DEVICE)
-        images = images.unsqueeze(0)
 
-        index = train_loader.dataset.indices[idx]
-        id = train_loader.dataset.dataset.imgs[index]
+    idx = 0
+    for idx, data in enumerate(loader):
+        image_id = loader.dataset.ids[idx]
+        print(f"Processing {idx+1}th image, image_id: {image_id}")
+        
+        images = data[0].to(const.DEVICE)
         
         image_prediction = generator.detector(images)[0]
         spatial_graph = generator._generate_spatial_graph(image_prediction, include_relationship_weights)
         
-        results[id] = spatial_graph
+        results[image_id] = spatial_graph
         idx += 1
 
-    idx = 0
-    for data in tqdm(iter(test_dataset), total=len(test_dataset), leave=False):
-        images = data[0].to(const.DEVICE)
-        images = images.unsqueeze(0)
+    torch.save(results, f'saves/{save_name}')
 
-        index = test_loader.dataset.indices[idx]
-        id = test_loader.dataset.dataset.imgs[index]
-        
-        image_prediction = generator.detector(images)[0]
-        spatial_graph = generator._generate_spatial_graph(image_prediction)
-        
-        results[id] = spatial_graph
-        idx += 1
 
-    print()
+def generate_spatial_graphs_on_coco_karpathy(split="val",
+                                             include_relationship_weights=False):
+    const.DATASET = 'coco_karpathy'
+    const.ROOT = "/import/gameai-01/eey362/datasets/coco/images"
+    const.ANNOTATIONS = "/homes/hps01/image-captioning/datasets/splits/dataset_coco.json"
+    const.TALK_FILE = "/homes/hps01/image-captioning/datasets/talk_files/cocotalk.json"
+    const.BATCH_SIZE = 1
+    const.SHUFFLE = False
+
+    train_loader, val_loader, test_loader, _, _, _, _ = get_data('coco_karpathy')
+
+    loaders = {
+        "train": train_loader,
+        "val": val_loader,
+        "test": test_loader
+    }
+
+    assert split in loaders.keys(), f"Split must be one of {loaders.keys()}"
+    loader = loaders[split]
+
+    generator = SpatialGraphGenerator()
+
+    if include_relationship_weights:
+        save_name = f"coco_karpathy_spatial_{split}_with_weights.pt"
+    else:
+        save_name = f"coco_karpathy_spatial_{split}.pt"
+
+    results = {}
+
+    for idx, _ in enumerate(loader):
+        image_id = loader.dataset.ids[idx]
+        print(f"Processing {idx+1}th image, image_id: {image_id}")
+
+        attribs = read_bottom_up_top_down_features(image_id)
+        spatial_graph = generator._generate_spatial_graph(attribs, include_relationship_weights)
+
+        results[image_id] = spatial_graph
+    
+    save_loc = os.path.join(const.ROOT, '..', "precomputed_graphs", save_name)
     torch.save(results, save_loc)

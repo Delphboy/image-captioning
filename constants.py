@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import torch
 import torchvision.transforms as transforms
 import spacy
@@ -31,4 +31,5 @@ class Constants:
     LEARNING_RATE = 3e-4
     EPOCHS = 1
     IS_GRAPH_MODEL = False
-    PRECOMPUTED_SPATIAL_GRAPHS = ""
+    PRECOMPUTED_SPATIAL_GRAPHS:dict = field(default_factory=dict)
+    PRECOMPUTED_SEMANTIC_GRAPHS:dict = field(default_factory=dict)

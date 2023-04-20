@@ -7,8 +7,10 @@ import torchvision.transforms as transforms
 from PIL import Image
 from pycocotools.coco import COCO
 from torch.utils.data import Dataset
+from torch_geometric.data import Batch
 from torchvision.datasets import VisionDataset
 from torchvision.io.image import read_image
+from torchvision.io import ImageReadMode
 
 from constants import Constants as const
 from datasets.vocabulary import Vocabulary
@@ -108,7 +110,7 @@ class CocoBatcher:
         for caption in captions:
             numericalized_caption = [self.coco_word_to_ix("<SOS>")]
             numericalized_caption += self.captions_to_numbers(caption)
-            numericalized_caption += [self.coco_word_to_ix("<END>")]
+            numericalized_caption += [self.coco_word_to_ix("<EOS>")]
             tensorised = torch.tensor(numericalized_caption)
             numericalized_captions.append(tensorised)
 
@@ -119,6 +121,25 @@ class CocoBatcher:
             end = lengths[i]
             targets[i, :end] = cap[:end]  
         return images, targets, torch.tensor(lengths, dtype=torch.int64)
+
+
+class CocoGraphsBatcher(CocoBatcher):
+    def __init__(self):
+        super().__init__()
+
+
+    def __call__(self, data):
+        def sorter(batch_element):
+            return len(batch_element[1][0].split(' '))
+
+        data.sort(key=sorter, reverse=True)
+        images, captions, graphs = zip(*data)
+
+        zipped = list(zip(images, captions))
+        images, captions_tensor, lengths = super().__call__(zipped)
+        graphs = Batch.from_data_list(list(graphs))
+        
+        return images, captions_tensor, lengths, graphs
 
 
 class CocoKarpathy(Dataset):
@@ -138,15 +159,19 @@ class CocoKarpathy(Dataset):
 
         # captions_file is a json file. Load it into a dictionary
         with open(self.captions_file, 'r') as f:
-            self.captions_file = json.load(f)
+            self.captions_file_data = json.load(f)
 
         self.data = {}
         captions = []
-        for image in self.captions_file['images']:
+
+        for image in self.captions_file_data['images']:
+            if image['split'] == 'restval':
+                image['split'] = 'train'
+
             if image['split'] == self.split:
                 self.data[image['cocoid']] = {
                     'dir': image['filepath'],
-                    'filename': image['filename'],#.split('_')[2],
+                    'filename': image['filename'],
                     'sentences': [sentence['raw'] for sentence in image['sentences']]
                 }
             
@@ -157,15 +182,27 @@ class CocoKarpathy(Dataset):
         self.vocab = Vocabulary(freq_threshold)
         self.vocab.build_vocabulary(captions)
 
+        if const.IS_GRAPH_MODEL:
+            self.spatial_graphs = torch.load(const.PRECOMPUTED_SPATIAL_GRAPHS[self.split]) if const.PRECOMPUTED_SPATIAL_GRAPHS else None
+            self.semantic_graphs = torch.load(const.PRECOMPUTED_SEMANTIC_GRAPHS[self.split]) if const.PRECOMPUTED_SEMANTIC_GRAPHS else None
+
+
 
     def __getitem__(self, index):
         data_id = self.ids[index]
         data = self.data[data_id]
-        image = read_image(os.path.join(self.root_dir, data['dir'], data['filename']))
+        image = read_image(os.path.join(self.root_dir, data['dir'], data['filename']), ImageReadMode.RGB)
         captions = data['sentences']
 
         if self.transform is not None:
             image = self.transform(image)
+
+        if const.IS_GRAPH_MODEL:
+            spatial_graph = self.spatial_graphs[data_id]
+            # spatial_graph.edge_index = spatial_graph.edge_index.to(torch.float32)
+
+            # semantic_graph = self.semantic_graphs[data_id]
+            return image, captions, spatial_graph
 
         return image, captions
 
