@@ -1,6 +1,6 @@
 from models.components.vision.encoders import InceptionV3, Resnet
 from models.components.language.lstm import Lstm
-from models.Captioner import BaseCaptioner
+from models.base_captioner import BaseCaptioner
 
 
 class CaptionWithInceptionV3AndLstm(BaseCaptioner):

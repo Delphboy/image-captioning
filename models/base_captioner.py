@@ -20,15 +20,15 @@ class BaseCaptioner(ABC, nn.Module):
         self.decoder: Optional[nn.Module]
 
 
-    def forward(self, images, captions):
-        features = self.encoder(images)
+    def forward(self, input_features, captions):
+        features = self.encoder(input_features)
         outputs = self.decoder(features, captions)
         return outputs      
 
 
-    def caption_image(self, image, vocab, max_length=50):
+    def caption_image(self, input_features, vocab, max_length=50):
         with torch.no_grad():
-            x = self.encoder(image)
+            x = self.encoder(input_features)
             states = None
 
             result = []

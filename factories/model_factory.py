@@ -1,7 +1,8 @@
 from typing import Optional
 from constants import Constants as const
 import models.basic_captioning_models as basic_models
-import models.spatial_gcn as spatial_gcn
+import models.single_graph_captioners as single_graph_captioners
+import models.dual_graph_captioners as dual_graph_captioners
 
 import torch.nn as nn
 
@@ -45,14 +46,37 @@ def _get_inceptionv3lstm(vocab_size:int,
                     vocab_size=vocab_size, 
                     num_layers=num_lstm_layers)
 
-def _get_spatialgcn(vocab_size:int, 
+
+def _get_spatialgat(vocab_size:int, 
                     embed_size: Optional[int]=256, 
                     hidden_size: Optional[int]=256, 
                     num_lstm_layers: Optional[int]=1):
-    return spatial_gcn.CaptionWithSpatialGraph(embed_size=embed_size, 
+    return single_graph_captioners.SemanticGat(embedding_size=embed_size, 
                                               hidden_size=hidden_size, 
                                               vocab_size=vocab_size, 
                                               num_layers=num_lstm_layers)
+
+
+def _get_semanticgat(vocab_size:int, 
+                    embed_size: Optional[int]=256, 
+                    hidden_size: Optional[int]=256, 
+                    num_lstm_layers: Optional[int]=1):
+    return single_graph_captioners.SemanticGat(embedding_size=embed_size, 
+                                              hidden_size=hidden_size, 
+                                              vocab_size=vocab_size, 
+                                              num_layers=num_lstm_layers)
+
+
+def _get_spatialsemanticgat(vocab_size:int, 
+                    embed_size: Optional[int]=256, 
+                    hidden_size: Optional[int]=256, 
+                    num_lstm_layers: Optional[int]=1):
+    return dual_graph_captioners.SpatialSemanticGat(embedding_size=embed_size, 
+                                                    hidden_size=hidden_size, 
+                                                    vocab_size=vocab_size, 
+                                                    num_layers=num_lstm_layers)
+
+
 
 ################################################################################
 
@@ -61,13 +85,15 @@ MODELS = {
     "resnet101lstm": _get_resnet101lstm,
     "resnet18lstm": _get_resnet18lstm,
     "inceptionv3lstm": _get_inceptionv3lstm,
-    "spatialgcn": _get_spatialgcn
+    "spatialgat": _get_spatialgat,
+    "semanticgat": _get_semanticgat,
+    "spatialsemanticgat": _get_spatialsemanticgat,
 }
 
 def get_model(model_name: str,
                 vocab_size:int, 
-                embed_size: Optional[int]=256, 
-                hidden_size: Optional[int]=256, 
+                embed_size: Optional[int]=2048, 
+                hidden_size: Optional[int]=1000, 
                 num_lstm_layers: Optional[int]=2) -> nn.Module:
     model_name = model_name.lower()
     

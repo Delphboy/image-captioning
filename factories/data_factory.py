@@ -163,8 +163,7 @@ DATASETS = {
 }
 
 
-def get_data(dataset_name: str):
-    
+def get_data(dataset_name: str) -> Tuple[DataLoader, DataLoader, Optional[DataLoader], Dataset, Dataset, Optional[Dataset], int]:
     if dataset_name not in DATASETS:
         raise Exception(f"The dataset '{dataset_name}' is not supported by the factory. Supported models are {DATASETS.keys()}")
 

@@ -106,7 +106,7 @@ class Flickr8kDatasetWithSpatialGraphs(Flickr8kDataset):
 class CaptionBatcher:
     def __init__(self, pad_idx):
         self.pad_idx = pad_idx
-        self.vocab = Vocabulary(5) # TODO: This should come from a config file
+        self.vocab = Vocabulary(5)
         self.vocab.build_vocabulary()
 
 

@@ -137,9 +137,14 @@ class CocoGraphsBatcher(CocoBatcher):
 
         zipped = list(zip(images, captions))
         images, captions_tensor, lengths = super().__call__(zipped)
-        graphs = Batch.from_data_list(list(graphs))
+
+        spatial_graphs = [g[0] for g in graphs]
+        semantic_graphs = [g[1] for g in graphs]
+
+        spatial_graphs = Batch.from_data_list(list(spatial_graphs))
+        semantic_graphs = Batch.from_data_list(list(semantic_graphs))
         
-        return images, captions_tensor, lengths, graphs
+        return images, captions_tensor, lengths, (spatial_graphs, semantic_graphs)
 
 
 class CocoKarpathy(Dataset):
@@ -201,8 +206,8 @@ class CocoKarpathy(Dataset):
             spatial_graph = self.spatial_graphs[data_id]
             # spatial_graph.edge_index = spatial_graph.edge_index.to(torch.float32)
 
-            # semantic_graph = self.semantic_graphs[data_id]
-            return image, captions, spatial_graph
+            semantic_graph = self.semantic_graphs[data_id]
+            return image, captions, (spatial_graph, semantic_graph)
 
         return image, captions
 

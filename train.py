@@ -36,8 +36,9 @@ def train(model: nn.Module,
             
             if const.IS_GRAPH_MODEL:
                 graphs = data[3]
-                graphs.cuda()
-                logits = model(images, targets[:,:-1], graphs)
+                graphs[0].cuda()
+                graphs[1].cuda()
+                logits = model(graphs, targets[:,:-1])
             else: 
                 logits = model(images, targets[:,:-1])
             
@@ -75,8 +76,9 @@ def evaluate(model: nn.Module,
         
         if const.IS_GRAPH_MODEL:
             graphs = data[3]
-            graphs.cuda()
-            logits = model(images, targets[:,:-1], graphs)
+            graphs[0].cuda()
+            graphs[1].cuda()
+            logits = model(graphs, targets[:,:-1])
         else: 
             logits = model(images, targets[:,:-1])
         

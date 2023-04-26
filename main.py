@@ -1,5 +1,6 @@
 import argparse
 
+import torch
 import torch.nn as nn
 import torch.optim as optim
 
@@ -12,14 +13,15 @@ from utils.helper_functions import parse_config_file
 from utils.save_and_load_models import *
 
 
-def load_and_evaluate(model_name: str, model_save_name: str):        
+def load_and_evaluate(model_save_name: str):        
     train_loader, val_loader, test_loader, dataset, val_dataset, test_dataset, pad_index = get_data(const.DATASET)
 
     vocab_size = len(dataset.vocab)
     model = get_model(model_name=const.MODEL, 
-                                 vocab_size=vocab_size,
-                                 embed_size=2048,
-                                 hidden_size=1000)
+                    vocab_size=vocab_size,
+                    embed_size=2048,
+                    hidden_size=1000,
+                    num_lstm_layers=2)
     
     model, _, _, _ = load_model(model=model, 
                                 optimiser=None, 
@@ -27,9 +29,9 @@ def load_and_evaluate(model_name: str, model_save_name: str):
     model.eval()
 
     if const.IS_GRAPH_MODEL:
-        eval.evaluate_graph_caption_model(model, test_loader, test_dataset)
+        eval.evaluate_graph_caption_model(model, test_dataset)
     else:
-        eval.evaluate_caption_model(model, test_loader, test_dataset)
+        eval.evaluate_caption_model(model, test_dataset)
 
 
 
@@ -47,7 +49,8 @@ def build_and_train_model() -> None:
     captioning_model = get_model(model_name=const.MODEL, 
                                  vocab_size=vocab_size,
                                  embed_size=2048,
-                                 hidden_size=1000)
+                                 hidden_size=1000,
+                                 num_lstm_layers=2)
 
     cross_entropy = nn.CrossEntropyLoss(ignore_index=pad_index)
     adam_optimiser = optim.Adam(captioning_model.parameters(), 
@@ -75,6 +78,7 @@ def build_and_train_model() -> None:
 
 
 if __name__ == "__main__":
+    torch.manual_seed(1337)
     parser = argparse.ArgumentParser(
         description="Train and evaluate a captioning model based on a configuation file"
     )
@@ -93,7 +97,7 @@ if __name__ == "__main__":
         build_and_train_model()
     
     if const.REGIME.__contains__("test"):
-        load_and_evaluate(const.MODEL, const.MODEL_SAVE_NAME)
+        load_and_evaluate(const.MODEL_SAVE_NAME)
 
 
 
