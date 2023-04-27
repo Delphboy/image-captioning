@@ -76,7 +76,8 @@ def plot_training_loss(epochs, loss):
     now = datetime.datetime.now()
     now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
 
-    plt.savefig(f'saves/loss_charts/loss-{const.MODEL_SAVE_NAME}-{now_str}.png')
+    save_loc = os.path.join(os.getcwd(), f'saves/loss_charts/loss-{const.MODEL_SAVE_NAME}-{now_str}.png')
+    plt.savefig(save_loc)
 
 
 def plot_training_and_val_loss(epochs, training_loss, val_loss):
@@ -112,7 +113,9 @@ def plot_training_and_val_loss(epochs, training_loss, val_loss):
     now = datetime.datetime.now()
     now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
 
-    plt.savefig(f'saves/loss_charts/val-train-loss-{const.MODEL_SAVE_NAME}-{now_str}.png')
+    save_loc = os.path.join(os.getcwd(), f'saves/loss_charts/val-train-loss-{const.MODEL_SAVE_NAME}-{now_str}.png')
+
+    plt.savefig(f'{save_loc}')
 
 
 def read_coco_karpathy_attributes(directory: str, 
