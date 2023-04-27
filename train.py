@@ -6,10 +6,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 from constants import Constants as const
-from utils.helper_functions import plot_training_loss, plot_training_and_val_loss
+from utils.helper_functions import plot_training_and_val_loss
 
 
 def train(model: nn.Module,
@@ -26,7 +25,7 @@ def train(model: nn.Module,
 
     for epoch in range(1, epoch_count + 1):
         epoch_loss= []
-        for idx, data in tqdm(enumerate(train_data_loader), total=len(train_data_loader), leave=False):
+        for idx, data in enumerate(train_data_loader):
             # print(f"Processing {data_loader.dataset.dataset.imgs[data_loader.dataset.indices[idx]]}")
             images = data[0].to(const.DEVICE)
             targets = data[1].to(const.DEVICE)

@@ -15,7 +15,7 @@ def evaluate_graph_caption_model(model: BaseCaptioner,
     img_idx = 0
     model.eval()
     print("Generating Captions for Test Set")
-    for data in tqdm(iter(dataset), total=len(dataset), leave=False):
+    for data in iter(dataset):
         imgs = data[0].to(const.DEVICE)
         imgs = imgs.unsqueeze(0)
         reference_captions = data[1]
@@ -46,7 +46,7 @@ def evaluate_caption_model(model: BaseCaptioner,
     img_idx = 0
     model.eval()
     print("Generating Captions for Test Set")
-    for data in tqdm(iter(dataset), total=len(dataset), leave=False):
+    for data in iter(dataset):
         imgs = data[0].to(const.DEVICE)
         imgs = imgs.unsqueeze(0)
         reference_captions = data[1]
