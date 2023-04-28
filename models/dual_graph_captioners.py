@@ -1,8 +1,8 @@
-from graphs.spatial_graph_generator import *
 from models.components.gnns.gat import GatMeanPool
 from models.components.language.lstm import Lstm
 from models.base_captioner import BaseCaptioner
 
+import torch
 
 class SpatialSemanticGat(BaseCaptioner):
     def __init__(self, 
