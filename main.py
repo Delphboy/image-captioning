@@ -13,10 +13,10 @@ from utils.helper_functions import parse_config_file
 from utils.save_and_load_models import *
 
 
-def load_and_evaluate(model_save_name: str):        
-    train_loader, val_loader, test_loader, dataset, val_dataset, test_dataset, pad_index = get_data(const.DATASET)
+def load_and_evaluate(model_save_name: str) -> None:        
+    _, _, test_loader, train_dataset, _, test_dataset, _ = get_data(const.DATASET)
 
-    vocab_size = len(dataset.vocab)
+    vocab_size = len(train_dataset.vocab)
     model = get_model(model_name=const.MODEL, 
                     vocab_size=vocab_size,
                     embed_size=2048,
@@ -28,10 +28,7 @@ def load_and_evaluate(model_save_name: str):
                                 save_name=model_save_name)
     model.eval()
 
-    if const.IS_GRAPH_MODEL:
-        eval.evaluate_graph_caption_model(model, test_dataset)
-    else:
-        eval.evaluate_caption_model(model, test_dataset)
+    eval.evaluate_caption_model(model, test_dataset)
 
 
 
