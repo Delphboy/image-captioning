@@ -26,7 +26,15 @@ class BaseCaptioner(ABC, nn.Module):
         return outputs      
 
 
-    def caption_image(self, input_features, vocab, max_length=50):
+    def caption_image(self, input_features, vocab, max_length=50, method='beam_search'):
+        assert method in ['greedy', 'beam_search']
+        if method == 'greedy':
+            return self.greedy_caption(input_features, vocab, max_length)
+        else:
+            return self.beam_search_caption(input_features, vocab, max_length)
+        
+    
+    def greedy_caption(self, input_features, vocab, max_length=50):
         with torch.no_grad():
             x = self.encoder(input_features)
             states = None
@@ -43,3 +51,26 @@ class BaseCaptioner(ABC, nn.Module):
                     break
             return [vocab.itos[f"{idx}"] for idx in result]
 
+
+    @torch.no_grad()
+    def beam_search_caption(self, input_features, vocab, max_length=50, beam_size=5):
+        x = self.encoder(input_features)
+        states = None
+
+        beam = [(1, [vocab.stoi["<SOS>"]], states)]
+        for _ in range(max_length):
+            candidates = []
+            for score, caption, states in beam:
+                hiddens, states = self.decoder.lstm(x, states)
+                logits = self.decoder.linear(hiddens.squeeze(0))
+                probabilities = torch.softmax(logits, dim=-1)
+                topk = probabilities.topk(beam_size)
+                for i in range(beam_size):
+                    candidate = (score * topk[0][i].item(), caption + [topk[1][i].item()], states)
+                    candidates.append(candidate)
+            candidates.sort(key=lambda x: x[0], reverse=True)
+            beam = candidates[:beam_size]
+            x = self.decoder.embedding(torch.tensor([beam[0][1][-1]]).to(x.device))
+            if vocab.itos[f"{beam[0][1][-1]}"] == "<EOS>":
+                break
+        return [vocab.itos[f"{idx}"] for idx in beam[0][1][1:]]
