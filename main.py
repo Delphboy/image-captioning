@@ -33,8 +33,9 @@ def load_and_evaluate(model_save_name: str) -> None:
 
 
 def build_and_train_model() -> None:
-    print(f"Set device to: {const.DEVICE}\n")
+    print(f"Set device to: {const.DEVICE}")
 
+    # Get data
     train_loader, val_loader, test_loader, train_dataset, val_dataset, test_dataset, pad_index = get_data(const.DATASET)
     
     # FIX: This is a hack to get the validation set to be the test set

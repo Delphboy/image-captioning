@@ -21,6 +21,8 @@ def train(model: nn.Module,
     
     training_loss_vals =  []
     val_loss_vals = []
+    EARLY_STOP_THRESHOLD = scheduler.patience * 2
+    early_stopping_count = 0
     model.train()
 
     for epoch in range(1, epoch_count + 1):
@@ -32,7 +34,7 @@ def train(model: nn.Module,
             
             optimiser.zero_grad()
             # model.zero_grad()
-            
+
             if const.IS_GRAPH_MODEL:
                 graphs = data[3]
                 graphs[0].cuda()
@@ -56,6 +58,12 @@ def train(model: nn.Module,
         if epoch == 1 or epoch % 5 == 0:
             val_loss = evaluate(model, val_data_loader)
             val_loss_vals.append([epoch, val_loss])
+        
+        if epoch_loss > training_loss_vals[-1] or val_loss > val_loss_vals[-1][0]:
+            early_stopping_count += 1
+            if early_stopping_count > EARLY_STOP_THRESHOLD:
+                print(f"Early stopping after {epoch} epochs")
+                break
     
     # plot_training_loss(np.linspace(1, epoch_count, epoch_count).astype(int), training_loss_vals)
     plot_training_and_val_loss(np.linspace(1, epoch_count, epoch_count).astype(int), training_loss_vals, val_loss_vals)
