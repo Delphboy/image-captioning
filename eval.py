@@ -6,7 +6,7 @@ from models.base_captioner import BaseCaptioner
 from utils.helper_functions import caption_array_to_string
 
 
-DEBUG=True
+DEBUG=False
 
 
 def evaluate_caption_model(model: BaseCaptioner, dataset: Dataset) -> None:
@@ -40,16 +40,16 @@ def evaluate_caption_model(model: BaseCaptioner, dataset: Dataset) -> None:
         hypotheses[image_id] = [{u'caption': candidate_caption}]
         references[image_id] = [{u'caption': caption} for caption in reference_captions]
 
-    results = generate_scores(references, hypotheses)
-    for k, v in results.items():
-        print(f"{k}: {v}")
+    global_results, local_results = generate_scores(references, hypotheses)
+    for k, v in global_results.items():
+        print(f"{k}: {v:.3f}")
 
 
-def generate_scores(gts, res):
+def generate_scores(references, candidates):
     tokenizer = PTBTokenizer()
 
-    gts  = tokenizer.tokenize(gts)
-    res = tokenizer.tokenize(res)
+    references  = tokenizer.tokenize(references)
+    res = tokenizer.tokenize(candidates)
 
     scorers = [
         (Bleu(4), ["Bleu_1", "Bleu_2", "Bleu_3", "Bleu_4"]),
@@ -63,7 +63,7 @@ def generate_scores(gts, res):
     img_output = {}
 
     for scorer, method in scorers:
-        score, scores = scorer.compute_score(gts, res)
+        score, scores = scorer.compute_score(references, res)
         if type(method) != list:
             method = [method]
             score = [score]
@@ -71,7 +71,7 @@ def generate_scores(gts, res):
 
         for sc, scs, m in zip(score, scores, method):
             output[m] = sc
-            for img_id, score in zip(gts.keys(), scs):
+            for img_id, score in zip(references.keys(), scs):
                 if type(score) is dict:
                     score = score['All']['f']
 
@@ -79,4 +79,4 @@ def generate_scores(gts, res):
                     img_output[img_id] = {}
                 img_output[img_id][m] = score
 
-    return output
+    return output, img_output

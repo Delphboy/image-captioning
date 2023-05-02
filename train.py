@@ -26,7 +26,7 @@ def train(model: nn.Module,
     for epoch in range(1, epoch_count + 1):
         epoch_loss= []
         for idx, data in enumerate(train_data_loader):
-            # print(f"Processing {data_loader.dataset.dataset.imgs[data_loader.dataset.indices[idx]]}")
+            # print(f"Processing {train_data_loader.dataset.ids[idx]}")
             images = data[0].to(const.DEVICE)
             targets = data[1].to(const.DEVICE)
             

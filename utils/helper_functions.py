@@ -57,6 +57,7 @@ def caption_array_to_string(array: List[str]) -> str:
     for i in range(1, len(array)):
         item = array[i]
 
+        if item == "<SOS>": continue
         if item == "<EOS>": break
 
         # The captions.txt has a space before fullstops
@@ -81,32 +82,13 @@ def plot_training_loss(epochs, loss):
 
 
 def plot_training_and_val_loss(epochs, training_loss, val_loss):
-    # plt.plot(epochs, training_loss)
-    # plt.xlabel("Epochs")
-    # plt.ylabel("Loss")
-
-    # now = datetime.datetime.now()
-    # now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
-
-    # plt.savefig(f'saves/loss_charts/loss-{const.MODEL_SAVE_NAME}-{now_str}.png')
-
-    # Using matplotlib, plot a line graph with two lines
-    # The y axis is the loss value
-    # The x axis is the epoch number
-    # epochs is an np array of epoch numbers
-    # Training loss is an np array of training loss values, where the ith value is the loss for the ith epoch
-    # val_loss is a list of [epoch, val_loss] pairs
-    # Plot the training loss as a line
     plt.plot(epochs, training_loss, label="Training Loss")
-    # Plot the validation loss as a line
-    epochs, val_loss = zip(*val_loss)
-        
+    
+    epochs, val_loss = zip(*val_loss)    
     plt.plot(epochs, val_loss, label="Validation Loss")
-    # Add a legend to the plot
+
     plt.legend()
-    # Add a title to the plot
     plt.title("Training and Validation Loss")
-    # Add x and y axis labels
     plt.xlabel("Epochs")
     plt.ylabel("Loss")
 
