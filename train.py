@@ -9,6 +9,7 @@ from torch.utils.data import DataLoader
 
 from constants import Constants as const
 from utils.helper_functions import plot_training_and_val_loss
+from tqdm import tqdm
 
 
 def train(model: nn.Module,
@@ -23,11 +24,13 @@ def train(model: nn.Module,
     val_loss_vals = []
     EARLY_STOP_THRESHOLD = scheduler.patience * 2
     early_stopping_count = 0
+    avg_epoch_loss = 10
     model.train()
 
-    for epoch in range(1, epoch_count + 1):
+    for epoch in range(1, epoch_count+1):
         epoch_loss= []
-        for idx, data in enumerate(train_data_loader):
+        wrapped_loader = tqdm(enumerate(train_data_loader), desc=f"Last epoch's loss: {avg_epoch_loss:.4f})")
+        for idx, data in wrapped_loader:
             # print(f"Processing {train_data_loader.dataset.ids[idx]}")
             images = data[0].to(const.DEVICE)
             targets = data[1].to(const.DEVICE)
@@ -49,17 +52,18 @@ def train(model: nn.Module,
 
             epoch_loss.append(loss.item())
 
-        epoch_loss = sum(epoch_loss)/len(epoch_loss)
-        scheduler.step(epoch_loss)
+        avg_epoch_loss = sum(epoch_loss)/len(epoch_loss)
+        scheduler.step(avg_epoch_loss)
 
-        print(f"Loss for epoch {epoch}/{epoch_count} | {epoch_loss}")
-        training_loss_vals.append(epoch_loss)
+        print(f"Loss for epoch {epoch}/{epoch_count} | {avg_epoch_loss}")
+        training_loss_vals.append(avg_epoch_loss)
+        wrapped_loader.set_description(f"Last epoch's loss: {avg_epoch_loss:.4f})")
 
         if epoch == 1 or epoch % 5 == 0:
             val_loss = evaluate(model, val_data_loader)
             val_loss_vals.append([epoch, val_loss])
         
-        if epoch_loss > training_loss_vals[-1] or val_loss > val_loss_vals[-1][0]:
+        if avg_epoch_loss > training_loss_vals[-1] or val_loss > val_loss_vals[-1][1]:
             early_stopping_count += 1
             if early_stopping_count > EARLY_STOP_THRESHOLD:
                 print(f"Early stopping after {epoch} epochs")
@@ -77,7 +81,8 @@ def evaluate(model: nn.Module,
     model.eval()
     
     losses = []
-    for idx, data in enumerate(data_loader):
+    enumerator = tqdm(enumerate(data_loader))
+    for idx, data in enumerator:
         images = data[0].to(const.DEVICE)
         targets = data[1].to(const.DEVICE)
         

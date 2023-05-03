@@ -1,5 +1,6 @@
 from pycocoevalcap.eval import Bleu, Cider, Meteor, PTBTokenizer, Rouge, Spice
 from torch.utils.data import Dataset
+from tqdm import tqdm
 
 from constants import Constants as const
 from models.base_captioner import BaseCaptioner
@@ -14,8 +15,9 @@ def evaluate_caption_model(model: BaseCaptioner, dataset: Dataset) -> None:
     hypotheses = {}
     model.eval()
     
-    print("Generating Captions for Test Set")    
-    for i in range(len(dataset)):
+    print("Generating Captions for Test Set")
+    iterator = tqdm(range(len(dataset)))
+    for i in iterator:
         data = dataset.__getitem__(i)
         imgs = data[0].to(const.DEVICE)
         imgs = imgs.unsqueeze(0)
