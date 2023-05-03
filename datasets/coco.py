@@ -1,13 +1,15 @@
 import json
 import os
 from typing import Any, Callable, List, Optional, Tuple
+import numpy as np
+import pandas as pd
 
 import torch
 import torchvision.transforms as transforms
 from PIL import Image
 from pycocotools.coco import COCO
 from torch.utils.data import Dataset
-from torch_geometric.data import Batch
+from torch_geometric.data import Data, Batch
 from torchvision.datasets import VisionDataset
 from torchvision.io.image import read_image
 from torchvision.io import ImageReadMode
@@ -36,7 +38,6 @@ class CocoCaptionsDataset(VisionDataset):
         self.word_to_ix = {v: int(k) for k, v in self.coco_talk.items()}
         self.vocab = Vocabulary(5)
         self.vocab.build_vocabulary(list(self.coco_talk.values()))
-        print()
 
 
     def _load_image(self, id: int) -> Image.Image:
@@ -182,20 +183,24 @@ class CocoKarpathy(Dataset):
             
             captions += [sentence['raw'] for sentence in image['sentences']]
 
-        self.ids = list(self.data.keys())
-
+        self.ids = np.array(list(self.data.keys()))
+        self.data = pd.DataFrame.from_dict(self.data, orient='index')
         self.vocab = Vocabulary(freq_threshold)
         self.vocab.build_vocabulary(captions)
 
         if const.IS_GRAPH_MODEL:
             self.spatial_graphs = torch.load(const.PRECOMPUTED_SPATIAL_GRAPHS[self.split]) if const.PRECOMPUTED_SPATIAL_GRAPHS else None
             self.semantic_graphs = torch.load(const.PRECOMPUTED_SEMANTIC_GRAPHS[self.split]) if const.PRECOMPUTED_SEMANTIC_GRAPHS else None
+            
+            self.spatial_graphs = pd.DataFrame.from_dict(self.spatial_graphs, orient='index')
+            self.semantic_graphs = pd.DataFrame.from_dict(self.semantic_graphs, orient='index')
+            
 
 
 
     def __getitem__(self, index):
         data_id = self.ids[index]
-        data = self.data[data_id]
+        data = self.data.loc[data_id]
         image = read_image(os.path.join(self.root_dir, data['dir'], data['filename']), ImageReadMode.RGB)
         captions = data['sentences']
 
@@ -203,10 +208,12 @@ class CocoKarpathy(Dataset):
             image = self.transform(image)
 
         if const.IS_GRAPH_MODEL:
-            spatial_graph = self.spatial_graphs[data_id]
-            # spatial_graph.edge_index = spatial_graph.edge_index.to(torch.float32)
-
-            semantic_graph = self.semantic_graphs[data_id]
+            spatial_graph = Data(x=self.spatial_graphs.loc[data_id][0][1], 
+                                 edge_index=self.spatial_graphs.loc[data_id][1][1], 
+                                 edge_attr=self.spatial_graphs.loc[data_id][2][1])
+            semantic_graph = Data(x=self.semantic_graphs.loc[data_id][0][1], 
+                                 edge_index=self.semantic_graphs.loc[data_id][1][1], 
+                                 edge_attr=self.semantic_graphs.loc[data_id][2][1])
             return image, captions, (spatial_graph, semantic_graph)
 
         return image, captions
