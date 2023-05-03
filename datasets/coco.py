@@ -201,13 +201,10 @@ class CocoKarpathy(Dataset):
     def __getitem__(self, index):
         data_id = self.ids[index]
         data = self.data.loc[data_id]
-        image = read_image(os.path.join(self.root_dir, data['dir'], data['filename']), ImageReadMode.RGB)
         captions = data['sentences']
 
-        if self.transform is not None:
-            image = self.transform(image)
-
         if const.IS_GRAPH_MODEL:
+            image = torch.ones([3, 224, 224])
             spatial_graph = Data(x=self.spatial_graphs.loc[data_id][0][1], 
                                  edge_index=self.spatial_graphs.loc[data_id][1][1], 
                                  edge_attr=self.spatial_graphs.loc[data_id][2][1])
@@ -215,6 +212,11 @@ class CocoKarpathy(Dataset):
                                  edge_index=self.semantic_graphs.loc[data_id][1][1], 
                                  edge_attr=self.semantic_graphs.loc[data_id][2][1])
             return image, captions, (spatial_graph, semantic_graph)
+
+
+        image = read_image(os.path.join(self.root_dir, data['dir'], data['filename']), ImageReadMode.RGB)
+        if self.transform is not None:
+            image = self.transform(image)
 
         return image, captions
 
