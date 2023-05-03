@@ -32,16 +32,16 @@ def train(model: nn.Module,
         wrapped_loader = tqdm(enumerate(train_data_loader), desc=f"Last epoch's loss: {avg_epoch_loss:.4f})")
         for idx, data in wrapped_loader:
             # print(f"Processing {train_data_loader.dataset.ids[idx]}")
-            images = data[0].to(const.DEVICE)
-            targets = data[1].to(const.DEVICE)
+            images = data[0].to(const.DEVICE, non_blocking=True)
+            targets = data[1].to(const.DEVICE, non_blocking=True)
             
             optimiser.zero_grad()
             # model.zero_grad()
 
             if const.IS_GRAPH_MODEL:
                 graphs = data[3]
-                graphs[0].cuda()
-                graphs[1].cuda()
+                graphs[0].to(const.DEVICE, non_blocking=True)
+                graphs[1].to(const.DEVICE, non_blocking=True)
                 logits = model(graphs, targets[:,:-1])
             else: 
                 logits = model(images, targets[:,:-1])
