@@ -39,8 +39,8 @@ def evaluate_caption_model(model: BaseCaptioner, dataset: Dataset) -> None:
             print(f"{image_id}: {candidate_caption}")
 
         # Collect the records we'll need for scoring
-        hypotheses[image_id] = [{u'caption': candidate_caption}]
-        references[image_id] = [{u'caption': caption} for caption in reference_captions]
+        hypotheses[str(image_id)] = [{u'caption': candidate_caption}]
+        references[str(image_id)] = [{u'caption': caption} for caption in reference_captions]
 
     global_results, local_results = generate_scores(references, hypotheses)
     for k, v in global_results.items():

@@ -142,8 +142,8 @@ class CocoGraphsBatcher(CocoBatcher):
         spatial_graphs = [g[0] for g in graphs]
         semantic_graphs = [g[1] for g in graphs]
 
-        spatial_graphs = Batch.from_data_list(list(spatial_graphs))
-        semantic_graphs = Batch.from_data_list(list(semantic_graphs))
+        spatial_graphs = Batch.from_data_list(spatial_graphs)
+        semantic_graphs = Batch.from_data_list(semantic_graphs)
         
         return images, captions_tensor, lengths, (spatial_graphs, semantic_graphs)
 
@@ -195,9 +195,7 @@ class CocoKarpathy(Dataset):
             self.spatial_graphs = pd.DataFrame.from_dict(self.spatial_graphs, orient='index')
             self.semantic_graphs = pd.DataFrame.from_dict(self.semantic_graphs, orient='index')
             
-
-
-
+            
     def __getitem__(self, index):
         data_id = self.ids[index]
         data = self.data.loc[data_id]

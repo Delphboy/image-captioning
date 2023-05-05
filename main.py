@@ -54,10 +54,10 @@ def build_and_train_model() -> None:
     adam_optimiser = optim.Adam(captioning_model.parameters(), 
                                 lr=const.LEARNING_RATE, 
                                 weight_decay=5e-4)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(adam_optimiser, 
-                                                     patience=3,
-                                                     factor=0.1,
-                                                     verbose=True)
+    scheduler = optim.lr_scheduler.StepLR(adam_optimiser,
+                                          step_size=10,
+                                          gamma=0.1,
+                                          verbose=True)
 
     trained, epoch, loss = trainer.train(model=captioning_model, 
                                         optimiser=adam_optimiser, 
