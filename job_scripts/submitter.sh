@@ -1,0 +1,13 @@
+#!/bin/bash
+qsub -N eval_semanticgat job_scripts/main.sh config_files/andrena_coco_debug_semanticgat.json
+qsub -N eval_spatialgat job_scripts/main.sh config_files/andrena_coco_debug_spatialgat.json
+
+qsub -N eval_spatialsemanticgat job_scripts/main.sh config_files/andrena_coco_debug_spatialsemanticgat.json
+qsub -N eval_spatialweightedsemanticgat job_scripts/main.sh config_files/andrena_coco_debug_spatialweightedsemanticgat.json
+qsub -N eval_weightedsemanticgat job_scripts/main.sh config_files/andrena_coco_debug_weightedsemanticgat.json
+qsub -N eval_weightedspatialgat job_scripts/main.sh config_files/andrena_coco_debug_weightedspatialgat.json
+qsub -N eval_weightedspatialsemanticgat job_scripts/main.sh config_files/andrena_coco_debug_weightedspatialsemanticgat.json
+qsub -N eval_weightedspatialweightedsemanticgat job_scripts/main.sh config_files/andrena_coco_debug_weightedspatialweightedsemanticgat.json
+
+qsub -N eval_resnet152 job_scripts/main.sh config_files/andrena_coco_resnet152lstm.json
+qstat

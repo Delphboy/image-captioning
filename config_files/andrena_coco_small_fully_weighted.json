@@ -1,0 +1,35 @@
+{   
+    "model": "spatialsemanticgat",
+    "model_save_name": "small_fully_weighted",
+    
+    "dataset": {
+        "name": "coco_karpathy",
+        "root": "/data/scratch/eey362/coco/",
+        "annotations": "/data/scratch/eey362/coco/dataset_coco.json",
+        "talk_file": "/data/scratch/eey362/coco/cocotalk.json"
+    },    
+    "regime": "train_and_test",
+    "training_parameters":{
+        "batch_size": 32,
+        "num_workers": 0,
+        "shuffle": "True",
+        "pin_memory": "False",
+        "learning_rate": 3e-4,
+        "epochs": 100
+    },
+
+    "is_graph_model": "True",
+    "graph_configurations": {
+        "precomputed_spatial_graphs": {
+            "train": "/data/scratch/eey362/coco/precomputed_graphs/coco_karpathy_spatial_train_weighted.pt",
+            "val": "/data/scratch/eey362/coco/precomputed_graphs/coco_karpathy_spatial_val_weighted.pt",
+            "test": "/data/scratch/eey362/coco/precomputed_graphs/coco_karpathy_spatial_test_weighted.pt"
+        },
+        "precomputed_semantic_graphs": {
+            "train": "/data/scratch/eey362/coco/precomputed_graphs/coco_karpathy_semantic_train_weighted.pt",
+            "val": "/data/scratch/eey362/coco/precomputed_graphs/coco_karpathy_semantic_val_weighted.pt",
+            "test": "/data/scratch/eey362/coco/precomputed_graphs/coco_karpathy_semantic_test_weighted.pt"
+        }
+    }
+
+}
