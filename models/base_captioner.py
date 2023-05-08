@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import *
+from constants import Constants as const
+
 class BaseCaptioner(ABC, nn.Module):
     def __init__(self,
                  embedding_size: int, 
@@ -31,9 +33,9 @@ class BaseCaptioner(ABC, nn.Module):
     def caption_image(self, input_features, vocab, max_length=20, method='beam_search'):
         assert method in ['greedy', 'beam_search']
         if method == 'greedy':
-            return self.greedy_caption(input_features, vocab, 12)
+            return self.greedy_caption(input_features, vocab, max_length)
         else:
-            return self.beam_search_caption(input_features, vocab, 12)
+            return self.beam_search_caption(input_features, vocab, max_length)
         
     
     def greedy_caption(self, input_features, vocab, max_length=50):
@@ -55,51 +57,36 @@ class BaseCaptioner(ABC, nn.Module):
 
 
     @torch.no_grad()
-    def beam_search_caption(self, input_features, vocab, max_length=30, beam_size=3):
-        class Node:
-            def __init__(self, x, states, log_prob, sequence, end):
-                self.x = x
-                self.states = states
-                self.log_prob = log_prob
-                self.sequence = sequence
-                self.end = end
-        
-        
-        def predict(node, beam_size):
-            if node.end:
-                return [node]
-            hiddens, states = self.decoder.lstm(node.x, node.states)
-            output = self.decoder.linear(hiddens.squeeze(0))
-            output = F.softmax(output, dim=-1)
-            top_probs, top_words = output.topk(beam_size)
-            children = []
-            for i in range(beam_size):
-                sequence = node.sequence.copy()
-                sequence.append(top_words[i].item())
-                x = self.decoder.embedding(top_words[i]).unsqueeze(0)
-                new_node = Node(x, 
-                                states, 
-                                node.log_prob + top_probs[i], 
-                                sequence, 
-                                vocab.itos[f"{top_words[i].item()}"] == "<EOS>" or len(sequence) == max_length)
-                children.append(new_node)
-            return children
-        
+    def beam_search_caption(self, input_features, vocab, max_length=30, beam_size=1):
+        input_features = self.encoder(input_features)
 
-        root = Node(self.encoder(input_features), None, 0, [], False)
-        queue = [root]        
+        beam = [(torch.tensor([vocab.stoi["<SOS>"]]).to(const.DEVICE),
+                  0.0,
+                  input_features,
+                  None)]
+        completed_captions = []
 
-        tree_level = 1
-        while tree_level < max_length:
-            new_queue = []
-            for node in queue:
-                new_queue.extend(predict(node, beam_size))
-            queue = new_queue
-            tree_level += 1
+        for _ in range(max_length):
+            candidates = []
+            for sequence, probability, old_hidden, old_state in beam:
+                if vocab.itos[f"{sequence[-1].item()}"] == "<EOS>":
+                    completed_captions.append((sequence, probability))
+                    continue
+                hiddens, states = self.decoder.lstm(old_hidden, old_state)
+                output = self.decoder.linear(hiddens.squeeze(0))
+                output = F.softmax(output, dim=-1)
+                topk = output.topk(beam_size)
+                for i in range(beam_size):
+                    candidates.append((torch.cat([sequence, topk[1][i].unsqueeze(0)]),
+                                       probability + topk[0][i].item(),
+                                       self.decoder.embedding(topk[1][i]).unsqueeze(0),
+                                       states))
+            candidates = sorted(candidates, key=lambda x: x[1], reverse=True)
+            beam = candidates[:beam_size]
+            if len(completed_captions) == beam_size:
+                break
 
-
-        end_nodes = [node for node in queue if node.end]
-        # return the sequence with the highest log_prob
-        sorted_end_nodes = sorted(end_nodes, key=lambda x: x.log_prob, reverse=True)
-        return [vocab.itos[f"{idx}"] for idx in sorted_end_nodes[0].sequence]
+        completed_captions.extend(beam)
+        completed_captions = sorted(completed_captions, key=lambda x: x[1], reverse=True)
+        return [vocab.itos[f"{idx.item()}"] for idx in completed_captions[0][0]]
 
