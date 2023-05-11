@@ -1,35 +1,35 @@
 {   
-    "model": "spatialsemanticgat",
-    "model_save_name": "development",
+    "model": "resnet18lstm",
+    "model_save_name": "RL-debug",
     
     "dataset": {
-        "name": "coco_karpathy",
-        "root": "/import/gameai-01/eey362/datasets/coco/images",
-        "annotations": "/homes/hps01/image-captioning/datasets/splits/dataset_coco.json",
-        "talk_file": "/homes/hps01/image-captioning/datasets/talk_files/cocotalk.json"
+        "name": "flickr8k",
+        "root": "/import/gameai-01/eey362/datasets/flickr8k/images",
+        "annotations": "/homes/hps01/image-captioning/datasets/splits/dataset_flickr8k.json",
+        "talk_file": "/homes/hps01/image-captioning/datasets/talk_files/flickrtalk.json"
     },
     
-    "is_graph_model": "True",
-    "graph_configurations": {
-        "precomputed_spatial_graphs": {
-            "train": "/import/gameai-01/eey362/datasets/coco/precomputed_graphs/coco_karpathy_spatial_val_unweighted.pt",
-            "val": "/import/gameai-01/eey362/datasets/coco/precomputed_graphs/coco_karpathy_spatial_val_unweighted.pt",
-            "test": "/import/gameai-01/eey362/datasets/coco/precomputed_graphs/coco_karpathy_spatial_test_unweighted.pt"
-        },
-        "precomputed_semantic_graphs": {
-            "train": "/import/gameai-01/eey362/datasets/coco/precomputed_graphs/coco_karpathy_semantic_val_unweighted.pt",
-            "val": "/import/gameai-01/eey362/datasets/coco/precomputed_graphs/coco_karpathy_semantic_val_unweighted.pt",
-            "test": "/import/gameai-01/eey362/datasets/coco/precomputed_graphs/coco_karpathy_semantic_test_unweighted.pt"
-        }
-    },
-    
-    "regime": "train_and_test",
+    "regime": "trai/n_and_val",
     "training_parameters":{
-        "batch_size": 8,
+        "batch_size": 128,
         "num_workers": 0,
         "shuffle": "True",
         "pin_memory": "False",
-        "learning_rate": 3e-4,
+        "learning_rate": 5e-4,
         "epochs": 10
+    },
+
+    "is_graph_model": "False",
+    "graph_configurations": {
+        "precomputed_spatial_graphs": {
+            "train": "/import/gameai-01/eey362/datasets/coco/precomputed_graphs/coco_karpathy_semantic_train_unweighted.pt",
+            "val": "/import/gameai-01/eey362/datasets/coco/precomputed_graphs/coco_karpathy_semantic_val_unweighted.pt",
+            "test": "/import/gameai-01/eey362/datasets/coco/precomputed_graphs/coco_karpathy_semantic_test_unweighted.pt"
+        },
+        "precomputed_semantic_graphs": {
+            "train": "/import/gameai-01/eey362/datasets/coco/precomputed_graphs/coco_karpathy_semantic_train_unweighted.pt",
+            "val": "/import/gameai-01/eey362/datasets/coco/precomputed_graphs/coco_karpathy_semantic_val_unweighted.pt",
+            "test": "/import/gameai-01/eey362/datasets/coco/precomputed_graphs/coco_karpathy_semantic_test_unweighted.pt"
+        }
     }
 }

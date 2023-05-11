@@ -13,8 +13,8 @@ from utils.helper_functions import parse_config_file
 from utils.save_and_load_models import *
 
 
-def load_and_evaluate(model_save_name: str) -> None:        
-    _, _, test_loader, train_dataset, _, test_dataset, _ = get_data(const.DATASET)
+def load_and_evaluate(model_save_name: str, split: str='val') -> None:        
+    _, val_loader, test_loader, train_dataset, val_dataset, test_dataset, _ = get_data(const.DATASET)
 
     vocab_size = len(train_dataset.vocab)
     model = get_model(model_name=const.MODEL, 
@@ -28,8 +28,12 @@ def load_and_evaluate(model_save_name: str) -> None:
                                 save_name=model_save_name)
     model.eval()
 
-    eval.evaluate_caption_model(model, test_dataset)
-
+    if split == 'val':
+        print(f"Evaluating on validation set")
+        eval.evaluate_caption_model(model, val_dataset)
+    else:
+        print(f"Evaluating on test set")
+        eval.evaluate_caption_model(model, test_dataset)
 
 
 def build_and_train_model() -> None:
@@ -39,8 +43,8 @@ def build_and_train_model() -> None:
     train_loader, val_loader, test_loader, train_dataset, val_dataset, test_dataset, pad_index = get_data(const.DATASET)
     
     # FIX: This is a hack to get the validation set to be the test set
-    train_loader = val_loader
-    val_loader = test_loader
+    # train_loader = val_loader
+    # val_loader = test_loader
 
     # Build Model
     vocab_size = len(train_dataset.vocab)
@@ -55,19 +59,27 @@ def build_and_train_model() -> None:
                                 lr=const.LEARNING_RATE, 
                                 weight_decay=5e-4)
     scheduler = optim.lr_scheduler.StepLR(adam_optimiser,
-                                          step_size=10,
+                                          step_size=100,
                                           gamma=0.1,
-                                          verbose=True)
+                                          verbose=False)
+    captioning_model, epoch, loss = trainer.train_supervised(model=captioning_model, 
+                                                             optimiser=adam_optimiser, 
+                                                             scheduler=scheduler,
+                                                             loss_function=cross_entropy, 
+                                                             train_data_loader=train_loader, 
+                                                             val_data_loader=val_loader,
+                                                             epoch_count=const.EPOCHS)
 
-    trained, epoch, loss = trainer.train(model=captioning_model, 
-                                        optimiser=adam_optimiser, 
-                                        scheduler=scheduler,
-                                        loss_function=cross_entropy, 
-                                        train_data_loader=train_loader, 
-                                        val_data_loader=val_loader,
-                                        epoch_count=const.EPOCHS)
+    adam_optimiser = optim.Adam(captioning_model.parameters(), 
+                                lr=5e-4, 
+                                weight_decay=5e-4)
+    captioning_model, epoch, loss = trainer.train_self_critical(model=captioning_model, 
+                                                       optimiser=adam_optimiser,
+                                                       train_data=train_loader, 
+                                                       val_data=val_loader,
+                                                       epoch_count=1)
 
-    save_model_checkpoint(trained, 
+    save_model_checkpoint(captioning_model, 
                           adam_optimiser, 
                           epoch, 
                           loss, 
@@ -94,8 +106,11 @@ if __name__ == "__main__":
     if const.REGIME.__contains__("train"):
         build_and_train_model()
     
+    if const.REGIME.__contains__("val"):
+        load_and_evaluate(const.MODEL_SAVE_NAME, 'val')
+
     if const.REGIME.__contains__("test"):
-        load_and_evaluate(const.MODEL_SAVE_NAME)
+        load_and_evaluate(const.MODEL_SAVE_NAME, 'test')
 
 
 

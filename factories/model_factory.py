@@ -1,19 +1,16 @@
 from typing import Optional
 
-import torch
-import torch_geometric.nn as gnn
 from constants import Constants as const
+from models.base_captioner import BaseCaptioner
 import models.basic_captioning_models as basic_models
 import models.single_graph_captioners as single_graph_captioners
 import models.dual_graph_captioners as dual_graph_captioners
-
-import torch.nn as nn
 
 
 def _get_resnet152lstm(vocab_size:int, 
                     embed_size: Optional[int]=2048, 
                     hidden_size: Optional[int]=1000, 
-                    num_lstm_layers: Optional[int]=1) -> nn.Module:
+                    num_lstm_layers: Optional[int]=1)-> BaseCaptioner:
     return basic_models.CaptionWithResnet152AndLstm(embed_size=embed_size, 
                     hidden_size=hidden_size,
                     vocab_size=vocab_size, 
@@ -23,7 +20,7 @@ def _get_resnet152lstm(vocab_size:int,
 def _get_resnet101lstm(vocab_size:int, 
                     embed_size: Optional[int]=2048, 
                     hidden_size: Optional[int]=1000, 
-                    num_lstm_layers: Optional[int]=1) -> nn.Module:
+                    num_lstm_layers: Optional[int]=1)-> BaseCaptioner:
     return basic_models.CaptionWithResnet101AndLstm(embed_size=embed_size, 
                     hidden_size=hidden_size,
                     vocab_size=vocab_size, 
@@ -33,7 +30,7 @@ def _get_resnet101lstm(vocab_size:int,
 def _get_resnet18lstm(vocab_size:int, 
                     embed_size: Optional[int]=2048, 
                     hidden_size: Optional[int]=1000, 
-                    num_lstm_layers: Optional[int]=1) -> nn.Module:
+                    num_lstm_layers: Optional[int]=1)-> BaseCaptioner:
     return basic_models.CaptionWithResnet18AndLstm(embed_size=embed_size, 
                     hidden_size=hidden_size,
                     vocab_size=vocab_size, 
@@ -97,7 +94,7 @@ def get_model(model_name: str,
                 vocab_size:int, 
                 embed_size: Optional[int]=2048, 
                 hidden_size: Optional[int]=1000, 
-                num_lstm_layers: Optional[int]=2) -> nn.Module:
+                num_lstm_layers: Optional[int]=2) -> BaseCaptioner:
     model_name = model_name.lower()
     
     if model_name not in MODELS:

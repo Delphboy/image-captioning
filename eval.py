@@ -1,13 +1,13 @@
 from pycocoevalcap.eval import Bleu, Cider, Meteor, PTBTokenizer, Rouge, Spice
 from torch.utils.data import Dataset
 from tqdm import tqdm
-
+from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction
 from constants import Constants as const
 from models.base_captioner import BaseCaptioner
 from utils.helper_functions import caption_array_to_string
 
 
-DEBUG=False
+DEBUG=True
 
 
 def evaluate_caption_model(model: BaseCaptioner, dataset: Dataset) -> None:
@@ -17,7 +17,7 @@ def evaluate_caption_model(model: BaseCaptioner, dataset: Dataset) -> None:
     
     print("Generating Captions for Test Set")
     iterator = tqdm(range(len(dataset)))
-    for i in iterator:
+    for i in range(len(dataset)):
         data = dataset.__getitem__(i)
         imgs = data[0].to(const.DEVICE)
         imgs = imgs.unsqueeze(0)
@@ -82,3 +82,4 @@ def generate_scores(references, candidates):
                 img_output[img_id][m] = score
 
     return output, img_output
+
