@@ -81,22 +81,28 @@ def plot_training_loss(epochs, loss):
     plt.savefig(save_loc)
 
 
-def plot_training_and_val_loss(epochs, training_loss, val_loss):
+def plot_training(training_loss, val_loss, performance_metrics, metric="Bleu_4"):
+    epochs, training_loss = zip(*training_loss)
     plt.plot(epochs, training_loss, label="Training Loss")
     
     epochs, val_loss = zip(*val_loss)    
     plt.plot(epochs, val_loss, label="Validation Loss")
 
+    epochs, performance_metrics = zip(*performance_metrics)    
+    plt.plot(epochs, [pm[metric]*100 for pm in performance_metrics], label=f"{metric}")
+
+    plt.axvline(x=const.EPOCHS, color='r', linestyle='--', label="End of XE Training")
+
     plt.legend()
-    plt.title("Training and Validation Loss")
+    plt.title("Training and Validation Loss with Performance Metrics")
     plt.xlabel("Epochs")
-    plt.ylabel("Loss")
+    plt.ylabel("Value")
+
 
     now = datetime.datetime.now()
     now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
 
-    save_loc = os.path.join(os.getcwd(), f'saves/loss_charts/val-train-loss-{const.MODEL_SAVE_NAME}-{now_str}.png')
-
+    save_loc = os.path.join(os.getcwd(), f'saves/loss_charts/training-metrics-{const.MODEL_SAVE_NAME}-{now_str}.png')
     plt.savefig(f'{save_loc}')
 
 

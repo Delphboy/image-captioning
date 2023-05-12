@@ -31,7 +31,7 @@ class BaseCaptioner(ABC, nn.Module):
 
 
     @torch.no_grad()
-    def caption_image(self, input_features, vocab, max_length=20, method='greedy'):
+    def caption_image(self, input_features, vocab, max_length=20, method='beam_search'):
         assert method in ['greedy', 'beam_search']
         if method == 'greedy':
             outputs, _ = self.greedy_caption(input_features, vocab, max_length)

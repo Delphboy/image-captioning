@@ -9,10 +9,14 @@ from torch.utils.data import DataLoader
 
 from constants import Constants as const
 from models.base_captioner import BaseCaptioner
-from utils.helper_functions import plot_training_and_val_loss, caption_array_to_string
+from utils.helper_functions import caption_array_to_string
 from tqdm import tqdm
 from pycocoevalcap.eval import Cider
+from eval import evaluate_caption_model
 
+training_loss_vals =  []
+val_loss_vals = []
+performance_vals = []
 
 def train_supervised(model: nn.Module,
                      optimiser: optim.Optimizer,
@@ -22,8 +26,6 @@ def train_supervised(model: nn.Module,
                      val_data_loader: DataLoader,
                      epoch_count: int=10):
     
-    training_loss_vals =  []
-    val_loss_vals = []
     EARLY_STOP_THRESHOLD = 5
     early_stopping_count = 0
     avg_epoch_loss = 10
@@ -59,14 +61,19 @@ def train_supervised(model: nn.Module,
         scheduler.step()
 
         print(f"Loss for epoch {epoch}/{epoch_count} | {avg_epoch_loss}")
-        training_loss_vals.append(avg_epoch_loss)
+        training_loss_vals.append([epoch, avg_epoch_loss])
         wrapped_loader.set_description(f"Last epoch's loss: {avg_epoch_loss:.4f}")
 
+        # Evaluate the model on the validation set
         if epoch == 1 or epoch % 5 == 0:
             val_loss = evaluate(model, val_data_loader)
             val_loss_vals.append([epoch, val_loss])
+            global_results, _ = evaluate_caption_model(model, val_data_loader.dataset)
+            performance_vals.append([epoch, global_results])
+            model.train()
+
         
-        if avg_epoch_loss > training_loss_vals[-1] or val_loss > val_loss_vals[-1][1]:
+        if avg_epoch_loss > training_loss_vals[-1][1] or val_loss > val_loss_vals[-1][1]:
             early_stopping_count += 1
             print("Early stopping count increased")
             if early_stopping_count > EARLY_STOP_THRESHOLD:
@@ -75,19 +82,18 @@ def train_supervised(model: nn.Module,
         else:
             early_stopping_count = 0
     
-    # plot_training_loss(np.linspace(1, epoch_count, epoch_count).astype(int), training_loss_vals)
-    plot_training_and_val_loss(np.linspace(1, epoch_count, epoch_count).astype(int), training_loss_vals, val_loss_vals)
-    print(f"Training complete after {epoch_count} epochs")
+    print(f"Training complete after {epoch_count} epochs of Cross Entropy Loss Training")
     print(f"Final training loss: {training_loss_vals[-1]}")
     print(f"Final validation loss: {val_loss_vals[-1][1]}")
     print(f"Final learning rate: {optimiser.param_groups[0]['lr']}")
+    
     return model, epoch, avg_epoch_loss
 
 
 def train_self_critical(model: BaseCaptioner,
                         optimiser: optim.Optimizer,
-                        train_data: DataLoader,
-                        val_data: DataLoader,
+                        train_data_loader: DataLoader,
+                        val_data_loader: DataLoader,
                         epoch_count: int=10):
     
     cider = Cider()
@@ -95,20 +101,20 @@ def train_self_critical(model: BaseCaptioner,
 
     for epoch in range(1, epoch_count+1):
         running_loss = 0.0
-        for idx, data in enumerate(train_data):
+        for idx, data in enumerate(train_data_loader):
             images = data[0].to(const.DEVICE, non_blocking=True)
             targets = data[1].to(const.DEVICE, non_blocking=True)
 
             optimiser.zero_grad()
 
-            test_candidates, probabilities = model.greedy_caption(images, train_data.dataset.vocab)
+            test_candidates, probabilities = model.greedy_caption(images, train_data_loader.dataset.vocab)
             probabilities = torch.tensor(probabilities).to(const.DEVICE, non_blocking=True)
 
             # Get the ground truth captions
             target_list = [targets[i].tolist() for i in range(targets.shape[0])]
             ground_truths = []
             for target in target_list:
-                words = [train_data.dataset.vocab.itos[str(i)] for i in target]
+                words = [train_data_loader.dataset.vocab.itos[str(i)] for i in target]
                 ground_truths.append(caption_array_to_string(words))
 
             # Create the dictionaries for the cider score
@@ -135,8 +141,20 @@ def train_self_critical(model: BaseCaptioner,
             optimiser.step()
         
             running_loss += loss.item()
+
+        # Evaluate using XE loss
+        if epoch == 1 or epoch % 5 == 0:
+            train_loss = evaluate(model, train_data_loader, split="training")
+            training_loss_vals.append([const.EPOCHS + epoch, train_loss])
+            
+            val_loss = evaluate(model, val_data_loader)
+            val_loss_vals.append([const.EPOCHS + epoch, val_loss])
+            
+            global_results, _ = evaluate_caption_model(model, val_data_loader.dataset)
+            performance_vals.append([const.EPOCHS + epoch, global_results])
+            model.train()
         
-        print(f"Epoch: {epoch}, Running Loss: {running_loss/len(train_data)}")
+        print(f"Epoch: {epoch}, Running Loss: {running_loss/len(train_data_loader)}")
     
     return model, epoch, running_loss
 
@@ -144,7 +162,8 @@ def train_self_critical(model: BaseCaptioner,
 
 @torch.no_grad()
 def evaluate(model: nn.Module, 
-             data_loader: DataLoader):
+             data_loader: DataLoader,
+             split: str="validation"):
     model.eval()
     
     losses = []
@@ -168,7 +187,7 @@ def evaluate(model: nn.Module,
         losses.append(loss.item())
 
     avg_loss = sum(losses)/len(losses)
-    print(f"Validation loss: {avg_loss}")
+    print(f"{split} loss: {avg_loss}")
     model.train()
     return avg_loss
 

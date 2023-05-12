@@ -1,16 +1,16 @@
+from typing import Tuple
 from pycocoevalcap.eval import Bleu, Cider, Meteor, PTBTokenizer, Rouge, Spice
 from torch.utils.data import Dataset
 from tqdm import tqdm
-from nltk.translate.bleu_score import corpus_bleu, SmoothingFunction
 from constants import Constants as const
 from models.base_captioner import BaseCaptioner
 from utils.helper_functions import caption_array_to_string
 
 
-DEBUG=True
+DEBUG=False
 
 
-def evaluate_caption_model(model: BaseCaptioner, dataset: Dataset) -> None:
+def evaluate_caption_model(model: BaseCaptioner, dataset: Dataset) -> Tuple[dict, dict]:
     references = {}
     hypotheses = {}
     model.eval()
@@ -44,7 +44,10 @@ def evaluate_caption_model(model: BaseCaptioner, dataset: Dataset) -> None:
 
     global_results, local_results = generate_scores(references, hypotheses)
     for k, v in global_results.items():
+        v*=100
         print(f"{k}: {v:.3f}")
+    
+    return global_results, local_results
 
 
 def generate_scores(references, candidates):

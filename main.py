@@ -9,7 +9,7 @@ import train as trainer
 from constants import Constants as const
 from factories.data_factory import get_data
 from factories.model_factory import get_model
-from utils.helper_functions import parse_config_file
+from utils.helper_functions import parse_config_file, plot_training
 from utils.save_and_load_models import *
 
 
@@ -70,20 +70,22 @@ def build_and_train_model() -> None:
                                                              val_data_loader=val_loader,
                                                              epoch_count=const.EPOCHS)
 
-    adam_optimiser = optim.Adam(captioning_model.parameters(), 
-                                lr=5e-4, 
-                                weight_decay=5e-4)
-    captioning_model, epoch, loss = trainer.train_self_critical(model=captioning_model, 
-                                                       optimiser=adam_optimiser,
-                                                       train_data=train_loader, 
-                                                       val_data=val_loader,
-                                                       epoch_count=1)
+    # adam_optimiser = optim.Adam(captioning_model.parameters(), 
+    #                             lr=5e-4, 
+    #                             weight_decay=5e-4)
+    # captioning_model, epoch, loss = trainer.train_self_critical(model=captioning_model, 
+    #                                                    optimiser=adam_optimiser,
+    #                                                    train_data_loader=train_loader, 
+    #                                                    val_data_loader=val_loader,
+    #                                                    epoch_count=1)
 
     save_model_checkpoint(captioning_model, 
                           adam_optimiser, 
                           epoch, 
                           loss, 
                           save_name=const.MODEL_SAVE_NAME)
+    
+    plot_training(trainer.training_loss_vals, trainer.val_loss_vals, trainer.performance_vals, metric='Bleu_4')
     print('Model fully trained!')
 
 
