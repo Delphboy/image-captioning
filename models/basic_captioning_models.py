@@ -35,6 +35,15 @@ class CaptionWithResnet101AndLstm(BaseCaptioner):
         self.decoder = Lstm(embed_size, hidden_size, vocab_size, num_layers)
 
 
+class CaptionWithResnet50AndLstm(BaseCaptioner):
+    def __init__(self, embed_size, hidden_size, vocab_size, num_layers):
+        super(CaptionWithResnet50AndLstm, self).__init__(embed_size, 
+                                                         hidden_size, 
+                                                         vocab_size, 
+                                                         num_layers)
+        self.encoder = Resnet(embed_size, 50)
+        self.decoder = Lstm(embed_size, hidden_size, vocab_size, num_layers)
+
 
 
 class CaptionWithResnet18AndLstm(BaseCaptioner):

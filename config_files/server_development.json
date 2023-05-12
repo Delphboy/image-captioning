@@ -1,6 +1,6 @@
 {   
-    "model": "resnet18lstm",
-    "model_save_name": "RL-debug",
+    "model": "resnet152lstm",
+    "model_save_name": "debug",
     
     "dataset": {
         "name": "flickr8k",
@@ -9,14 +9,14 @@
         "talk_file": "/homes/hps01/image-captioning/datasets/talk_files/flickrtalk.json"
     },
     
-    "regime": "trai/n_and_val",
+    "regime": "train_and_val",
     "training_parameters":{
         "batch_size": 128,
-        "num_workers": 0,
+        "num_workers": 2,
         "shuffle": "True",
         "pin_memory": "False",
         "learning_rate": 5e-4,
-        "epochs": 10
+        "epochs": 100
     },
 
     "is_graph_model": "False",

@@ -15,8 +15,7 @@ def evaluate_caption_model(model: BaseCaptioner, dataset: Dataset) -> Tuple[dict
     hypotheses = {}
     model.eval()
     
-    print("Generating Captions for Test Set")
-    iterator = tqdm(range(len(dataset)))
+    print("Generating Captions")
     for i in range(len(dataset)):
         data = dataset.__getitem__(i)
         imgs = data[0].to(const.DEVICE)

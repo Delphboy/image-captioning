@@ -31,7 +31,7 @@ class BaseCaptioner(ABC, nn.Module):
 
 
     @torch.no_grad()
-    def caption_image(self, input_features, vocab, max_length=20, method='beam_search'):
+    def caption_image(self, input_features, vocab, max_length=20, method='greedy'):
         assert method in ['greedy', 'beam_search']
         if method == 'greedy':
             outputs, _ = self.greedy_caption(input_features, vocab, max_length)
@@ -70,10 +70,12 @@ class BaseCaptioner(ABC, nn.Module):
         result = torch.stack(result, 0)
 
         caption_strings = []
-        for i in range(result.shape[-1]):
-            if len(result.shape) == 1: result = result.unsqueeze(0)
-            cap_str = [vocab.itos[f"{idx.item()}"] for idx in result[:, i]]
-            caption_strings.append(cap_str)
+        if len(result.shape) == 1: 
+            caption_strings.append([vocab.itos[f"{idx.item()}"] for idx in result])
+        else:
+            for i in range(result.shape[-1]):
+                cap_str = [vocab.itos[f"{idx.item()}"] for idx in result[:, i]]
+                caption_strings.append(cap_str)
 
         return caption_strings, probabilities
 

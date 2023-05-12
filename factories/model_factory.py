@@ -27,6 +27,16 @@ def _get_resnet101lstm(vocab_size:int,
                     num_layers=num_lstm_layers)
 
 
+def _get_resnet50lstm(vocab_size:int, 
+                    embed_size: Optional[int]=2048, 
+                    hidden_size: Optional[int]=1000, 
+                    num_lstm_layers: Optional[int]=1)-> BaseCaptioner:
+    return basic_models.CaptionWithResnet50AndLstm(embed_size=embed_size, 
+                    hidden_size=hidden_size,
+                    vocab_size=vocab_size, 
+                    num_layers=num_lstm_layers)
+
+
 def _get_resnet18lstm(vocab_size:int, 
                     embed_size: Optional[int]=2048, 
                     hidden_size: Optional[int]=1000, 
@@ -83,6 +93,7 @@ def _get_spatialsemanticgat(vocab_size:int,
 MODELS = {
     "resnet152lstm": _get_resnet152lstm,
     "resnet101lstm": _get_resnet101lstm,
+    "resnet50lstm": _get_resnet50lstm,
     "resnet18lstm": _get_resnet18lstm,
     "inceptionv3lstm": _get_inceptionv3lstm,
     "spatialgat": _get_spatialgat,
