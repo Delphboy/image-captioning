@@ -14,9 +14,10 @@ from tqdm import tqdm
 from pycocoevalcap.eval import Cider
 from eval import evaluate_caption_model
 
-training_loss_vals =  []
+train_loss_vals =  []
+train_performance_vals = []
 val_loss_vals = []
-performance_vals = []
+val_performance_vals = []
 
 def train_supervised(model: nn.Module,
                      optimiser: optim.Optimizer,
@@ -61,19 +62,21 @@ def train_supervised(model: nn.Module,
         scheduler.step()
 
         print(f"Loss for epoch {epoch}/{epoch_count} | {avg_epoch_loss}")
-        training_loss_vals.append([epoch, avg_epoch_loss])
+        train_loss_vals.append([epoch, avg_epoch_loss])
         wrapped_loader.set_description(f"Last epoch's loss: {avg_epoch_loss:.4f}")
 
         # Evaluate the model on the validation set
         if epoch == 1 or epoch % 5 == 0:
             val_loss = evaluate(model, val_data_loader)
             val_loss_vals.append([epoch, val_loss])
+            global_results, _ = evaluate_caption_model(model, train_data_loader.dataset)
+            train_performance_vals.append([epoch, global_results])
             global_results, _ = evaluate_caption_model(model, val_data_loader.dataset)
-            performance_vals.append([epoch, global_results])
+            val_performance_vals.append([epoch, global_results])
             model.train()
 
         
-        if avg_epoch_loss > training_loss_vals[-1][1] or val_loss > val_loss_vals[-1][1]:
+        if avg_epoch_loss > train_loss_vals[-1][1] or val_loss > val_loss_vals[-1][1]:
             early_stopping_count += 1
             print("Early stopping count increased")
             if early_stopping_count > EARLY_STOP_THRESHOLD:
@@ -83,7 +86,7 @@ def train_supervised(model: nn.Module,
             early_stopping_count = 0
     
     print(f"Training complete after {epoch_count} epochs of Cross Entropy Loss Training")
-    print(f"Final training loss: {training_loss_vals[-1]}")
+    print(f"Final training loss: {train_loss_vals[-1]}")
     print(f"Final validation loss: {val_loss_vals[-1][1]}")
     print(f"Final learning rate: {optimiser.param_groups[0]['lr']}")
     
@@ -145,19 +148,21 @@ def train_self_critical(model: BaseCaptioner,
         # Evaluate using XE loss
         if epoch == 1 or epoch % 5 == 0:
             train_loss = evaluate(model, train_data_loader, split="training")
-            training_loss_vals.append([const.EPOCHS + epoch, train_loss])
+            train_loss_vals.append([const.EPOCHS + epoch, train_loss])
+
+            global_results, _ = evaluate_caption_model(model, train_data_loader.dataset)
+            train_performance_vals.append([epoch, global_results])
             
             val_loss = evaluate(model, val_data_loader)
             val_loss_vals.append([const.EPOCHS + epoch, val_loss])
             
             global_results, _ = evaluate_caption_model(model, val_data_loader.dataset)
-            performance_vals.append([const.EPOCHS + epoch, global_results])
+            val_performance_vals.append([const.EPOCHS + epoch, global_results])
             model.train()
         
         print(f"Epoch: {epoch}, Running Loss: {running_loss/len(train_data_loader)}")
     
     return model, epoch, running_loss
-
 
 
 @torch.no_grad()

@@ -85,7 +85,11 @@ def build_and_train_model() -> None:
                           loss, 
                           save_name=const.MODEL_SAVE_NAME)
     
-    plot_training(trainer.training_loss_vals, trainer.val_loss_vals, trainer.performance_vals, metric='Bleu_4')
+    plot_training(trainer.train_loss_vals, 
+                  trainer.train_performance_vals,
+                  trainer.val_loss_vals, 
+                  trainer.val_performance_vals, 
+                  metric='Bleu_4')
     print('Model fully trained!')
 
 

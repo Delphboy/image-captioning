@@ -81,15 +81,22 @@ def plot_training_loss(epochs, loss):
     plt.savefig(save_loc)
 
 
-def plot_training(training_loss, val_loss, performance_metrics, metric="Bleu_4"):
+def plot_training(training_loss, 
+                  train_performance_metrics, 
+                  val_loss, 
+                  val_performance_metrics, 
+                  metric="Bleu_4"):
     epochs, training_loss = zip(*training_loss)
     plt.plot(epochs, training_loss, label="Training Loss")
     
     epochs, val_loss = zip(*val_loss)    
     plt.plot(epochs, val_loss, label="Validation Loss")
 
-    epochs, performance_metrics = zip(*performance_metrics)    
-    plt.plot(epochs, [pm[metric]*100 for pm in performance_metrics], label=f"{metric}")
+    epochs, train_performance_metrics = zip(*train_performance_metrics)    
+    plt.plot(epochs, [pm[metric]*100 for pm in train_performance_metrics], label=f"Train {metric}")
+
+    epochs, val_performance_metrics = zip(*val_performance_metrics)    
+    plt.plot(epochs, [pm[metric]*100 for pm in val_performance_metrics], label=f"Val {metric}")
 
     plt.axvline(x=const.EPOCHS, color='r', linestyle='--', label="End of XE Training")
 
