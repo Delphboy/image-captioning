@@ -9,7 +9,7 @@ import train as trainer
 from constants import Constants as const
 from factories.data_factory import get_data
 from factories.model_factory import get_model
-from utils.helper_functions import parse_config_file, plot_training
+from utils.helper_functions import parse_config_file, plot_training, plot_metrics
 from utils.save_and_load_models import *
 
 
@@ -85,11 +85,9 @@ def build_and_train_model() -> None:
                           loss, 
                           save_name=const.MODEL_SAVE_NAME)
     
-    plot_training(trainer.train_loss_vals, 
-                  trainer.train_performance_vals,
-                  trainer.val_loss_vals, 
-                  trainer.val_performance_vals, 
-                  metric='Bleu_4')
+    plot_training(trainer.train_loss_vals,
+                  trainer.val_loss_vals)
+    plot_metrics(trainer.val_performance_vals)
     print('Model fully trained!')
 
 

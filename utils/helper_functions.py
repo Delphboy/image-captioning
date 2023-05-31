@@ -81,36 +81,48 @@ def plot_training_loss(epochs, loss):
     plt.savefig(save_loc)
 
 
-def plot_training(training_loss, 
-                  train_performance_metrics, 
-                  val_loss, 
-                  val_performance_metrics, 
-                  metric="Bleu_4"):
+def plot_training(training_loss,
+                  val_loss):
+    plt.figure(figsize=(10, 10))
     epochs, training_loss = zip(*training_loss)
     plt.plot(epochs, training_loss, label="Training Loss")
     
     epochs, val_loss = zip(*val_loss)    
     plt.plot(epochs, val_loss, label="Validation Loss")
 
-    epochs, train_performance_metrics = zip(*train_performance_metrics)    
-    plt.plot(epochs, [pm[metric]*100 for pm in train_performance_metrics], label=f"Train {metric}")
-
-    epochs, val_performance_metrics = zip(*val_performance_metrics)    
-    plt.plot(epochs, [pm[metric]*100 for pm in val_performance_metrics], label=f"Val {metric}")
-
     plt.axvline(x=const.EPOCHS, color='r', linestyle='--', label="End of XE Training")
 
     plt.legend()
-    plt.title("Training and Validation Loss with Performance Metrics")
+    plt.title("Training and Validation Loss")
     plt.xlabel("Epochs")
     plt.ylabel("Value")
-
 
     now = datetime.datetime.now()
     now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
 
     save_loc = os.path.join(os.getcwd(), f'saves/loss_charts/training-metrics-{const.MODEL_SAVE_NAME}-{now_str}.png')
     plt.savefig(f'{save_loc}')
+
+
+def plot_metrics(performance_metrics):
+    plt.figure(figsize=(10, 10))
+    for metric in performance_metrics[0][1].keys():
+        epochs, metric_values = zip(*[(pm[0], pm[1][metric]*100) for pm in performance_metrics])
+        plt.plot(epochs, metric_values, label=f"Val {metric}")
+
+    plt.axvline(x=const.EPOCHS, color='r', linestyle='--', label="End of XE Training")
+
+    plt.legend()
+    plt.title("Validation Set Metrics")
+    plt.xlabel("Epochs")
+    plt.ylabel("Value")
+
+    now = datetime.datetime.now()
+    now_str = now.strftime("%Y-%m-%d_%H-%M-%S")
+
+    save_loc = os.path.join(os.getcwd(), f'saves/loss_charts/validation-performance-{const.MODEL_SAVE_NAME}-{now_str}.png')
+    plt.savefig(f'{save_loc}')
+    
 
 
 def read_coco_karpathy_attributes(directory: str, 

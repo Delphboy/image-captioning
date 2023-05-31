@@ -61,7 +61,7 @@ def _get_spatialgat(vocab_size:int,
                     embed_size: Optional[int]=2048, 
                     hidden_size: Optional[int]=1000, 
                     num_lstm_layers: Optional[int]=1):
-    return single_graph_captioners.SemanticGat(embedding_size=embed_size, 
+    return single_graph_captioners.SpatialGat(embedding_size=embed_size, 
                                               hidden_size=hidden_size, 
                                               vocab_size=vocab_size, 
                                               num_layers=num_lstm_layers)

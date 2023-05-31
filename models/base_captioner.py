@@ -42,7 +42,7 @@ class BaseCaptioner(ABC, nn.Module):
         
     
     # TODO: Parallelise this properly
-    # @torch.no_grad()
+    @torch.no_grad()
     def greedy_caption(self, 
                        input_features, 
                        vocab, 
