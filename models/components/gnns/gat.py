@@ -13,9 +13,10 @@ class GatMeanPool(nn.Module):
         self.lin = nn.Linear(in_channels, out_channels)
 
 
-    def forward(self, graph_batch):
+    def forward(self, graph_batch, pool=False):
         x, edge_index, edge_attr, batch = graph_batch.x, graph_batch.edge_index, graph_batch.edge_attr, graph_batch.batch
         edge_index = edge_index.to(torch.int64)
+        edge_attr = edge_attr.to(torch.float32)
 
         if len(edge_index) > 0:
             x = self.gat1(x, edge_index, edge_attr)
@@ -24,10 +25,18 @@ class GatMeanPool(nn.Module):
             x = x.relu()
             x = self.gat3(x, edge_index, edge_attr)
         
-        x = global_mean_pool(x, batch)
-        
-        x = F.dropout(x, p=0.5, training=self.training)
-        x = self.lin(x)
-                
-        return x
+        if pool:
+            x = global_mean_pool(x, batch)
+            x = F.dropout(x, p=0.1, training=self.training)
+            x = self.lin(x)
+            return x
+
+        graph_batch.x = x
+
+        # unbatch the graphs into a set
+        graphs = graph_batch.to_data_list()
+        X = [g.x for g in graphs]
+        X = nn.utils.rnn.pad_sequence(X, batch_first=True)
+        return X
+
 

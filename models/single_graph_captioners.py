@@ -1,7 +1,11 @@
-from models.components.gnns.gat import GatMeanPool
-from models.components.language.lstm import Lstm
-from models.base_captioner import BaseCaptioner
+from typing import List, Tuple
 
+import torch
+import torch.nn.functional as F
+from models.components.gnns.gat import GatMeanPool
+from models.components.language.lstm import Lstm, AttentionLstm
+from models.base_captioner import BaseCaptioner
+from constants import Constants as const
 
 class SpatialGat(BaseCaptioner):
     def __init__(self, 
@@ -14,15 +18,56 @@ class SpatialGat(BaseCaptioner):
                                          vocab_size, 
                                          num_layers)
         self.encoder = GatMeanPool(embedding_size, embedding_size)
-        self.decoder = Lstm(embedding_size, hidden_size, vocab_size, num_layers)
+        self.decoder = AttentionLstm(embedding_size, hidden_size, vocab_size, num_layers)
     
     
-    def forward(self, graphs, captions):   
-        return super().forward(graphs[0], captions) 
+    def forward(self, graphs, captions, lengths):   
+        features = self.encoder(graphs[0]) # FIXME: Should intellegently select the graph based on the model
+        outputs = self.decoder(features, captions, lengths)
+        return outputs
     
 
-    def caption_image(self, graphs, vocab, max_lenth=50):
-        return super().caption_image(graphs[0], vocab, max_lenth)
+    @torch.no_grad()
+    def caption_image(self, 
+                      input_features: List, 
+                      vocab, 
+                      max_length=20) -> List[str]:
+        convert = lambda idxs: [vocab.itos[f"{int(idx)}"] for idx in idxs]
+   
+        features = self.encoder(input_features[0])
+        batch_size = features.size(0)
+
+        hidden, cell_state = self.decoder.init_hidden_state(features)
+        logits = torch.zeros(batch_size, max_length, self.vocab_size).to(const.DEVICE)
+        alphas = torch.zeros(batch_size, max_length, features.size(1)).to(const.DEVICE)
+        
+        prev_word = torch.tensor([vocab.stoi["<SOS>"]]).to(const.DEVICE)
+
+        for t in range(max_length):
+            context, alpha = self.decoder.attention(features, hidden)
+            gate = self.decoder.sigmoid(self.decoder.f_beta(hidden)) 
+            gated_context = gate * context
+
+            embedding = self.decoder.embedding(prev_word)
+            lstm_input = torch.cat([embedding, gated_context], dim=1)
+            hidden, cell_state = self.decoder.lstm_cell(lstm_input, (hidden, cell_state))
+            logit = self.decoder.fc(hidden)
+            
+            logits[:, t] = logit
+            alphas[:, t] = alpha
+
+            prev_word = logit.argmax(1)
+
+        probs = F.softmax(logits, dim=-1)
+        pred_idx = probs.argmax(dim=-1)
+        caption_idxs = pred_idx.tolist()[0]
+        caption = convert(caption_idxs)
+        return caption
+
+        
+
+
+
 
 
 class SemanticGat(BaseCaptioner):

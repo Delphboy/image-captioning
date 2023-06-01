@@ -15,7 +15,6 @@ from pycocoevalcap.eval import Cider
 from eval import evaluate_caption_model
 
 train_loss_vals =  []
-train_performance_vals = []
 val_loss_vals = []
 val_performance_vals = []
 
@@ -36,28 +35,26 @@ def train_supervised(model: nn.Module,
         epoch_loss= []
         wrapped_loader = tqdm(enumerate(train_data_loader), desc=f"Last epoch's loss: {avg_epoch_loss:.4f}")
         for idx, data in wrapped_loader:
-            # print(f"Processing {train_data_loader.dataset.ids[idx]}")
             images = data[0].to(const.DEVICE, non_blocking=True)
             targets = data[1].to(const.DEVICE, non_blocking=True)
+            lengths = data[2].to(const.DEVICE, non_blocking=True)
             
             optimiser.zero_grad()
-            # model.zero_grad()
             if const.IS_GRAPH_MODEL:
                 graphs = data[3]
                 graphs[0].to(const.DEVICE, non_blocking=True)
                 graphs[0].edge_index.to('cpu')
                 graphs[1].to(const.DEVICE, non_blocking=True)
                 graphs[1].edge_index.to('cpu')
-                logits = model(graphs, targets[:,:-1])
+                logits = model(graphs, targets[:,:-1], lengths)
             else: 
                 logits = model(images, targets[:,:-1])
             
-            loss = loss_function(logits.permute(0, 2, 1), targets)
+            loss = loss_function(logits.permute(0, 2, 1), targets[:,:-1])
             loss.backward()
             optimiser.step()
 
             epoch_loss.append(loss.item())
-
         avg_epoch_loss = sum(epoch_loss) / len(epoch_loss)
         scheduler.step()
 
@@ -69,8 +66,6 @@ def train_supervised(model: nn.Module,
         if epoch == 1 or epoch % 5 == 0:
             val_loss = evaluate(model, val_data_loader)
             val_loss_vals.append([epoch, val_loss])
-            global_results, _ = evaluate_caption_model(model, train_data_loader.dataset)
-            train_performance_vals.append([epoch, global_results])
             global_results, _ = evaluate_caption_model(model, val_data_loader.dataset)
             val_performance_vals.append([epoch, global_results])
             model.train()
@@ -149,9 +144,6 @@ def train_self_critical(model: BaseCaptioner,
         if epoch == 1 or epoch % 5 == 0:
             train_loss = evaluate(model, train_data_loader, split="training")
             train_loss_vals.append([const.EPOCHS + epoch, train_loss])
-
-            global_results, _ = evaluate_caption_model(model, train_data_loader.dataset)
-            train_performance_vals.append([epoch, global_results])
             
             val_loss = evaluate(model, val_data_loader)
             val_loss_vals.append([const.EPOCHS + epoch, val_loss])
@@ -174,21 +166,20 @@ def evaluate(model: nn.Module,
     losses = []
     enumerator = tqdm(enumerate(data_loader))
     for idx, data in enumerator:
-        images = data[0].to(const.DEVICE)
-        targets = data[1].to(const.DEVICE)
+        images = data[0].to(const.DEVICE, non_blocking=True)
+        targets = data[1].to(const.DEVICE, non_blocking=True)
+        lengths = data[2].to(const.DEVICE, non_blocking=True)
         
         if const.IS_GRAPH_MODEL:
             graphs = data[3]
             graphs[0].cuda()
             graphs[1].cuda()
-            logits = model(graphs, targets[:,:-1])
+            logits = model(graphs, targets, lengths)
+            loss = F.cross_entropy(logits.permute(0, 2, 1), targets[:,:-1], ignore_index=data_loader.dataset.vocab.stoi["<PAD>"])
         else: 
             logits = model(images, targets[:,:-1])
+            loss = F.cross_entropy(logits.permute(0, 2, 1), targets, ignore_index=data_loader.dataset.vocab.stoi["<PAD>"])
         
-        loss = F.cross_entropy(logits.permute(0, 2, 1), 
-                            targets, 
-                            ignore_index=data_loader.dataset.vocab.stoi["<PAD>"])
-
         losses.append(loss.item())
 
     avg_loss = sum(losses)/len(losses)
