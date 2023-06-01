@@ -62,7 +62,7 @@ def generate_scores(references, candidates):
         (Meteor(), "METEOR"),
         (Rouge(), "ROUGE_L"),
         (Cider(), "CIDEr"),
-        (Spice(), "SPICE")
+        # (Spice(), "SPICE") # WARNING: This can be blocking with multiple instances of the captioning code running
     ]
 
     output = {}
