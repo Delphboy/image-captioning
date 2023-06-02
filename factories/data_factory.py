@@ -156,59 +156,10 @@ def _get_coco_karpathy_data() -> Tuple[DataLoader, DataLoader, DataLoader, Datas
     return train_loader, val_loader, test_loader, train_dataset, val_dataset, test_dataset, train_dataset.vocab.stoi["<PAD>"]
 
 
-def _get_coco_development_data() -> Tuple[DataLoader, DataLoader, DataLoader, Dataset, Dataset, Dataset, int]:   
-    test_dataset = CocoKarpathy(root_dir=const.ROOT,
-                                captions_file=const.ANNOTATIONS,
-                                transform=const.STANDARD_TRANSFORM,
-                                split='test',
-                                freq_threshold=5)
-    
-    val_dataset = CocoKarpathy(root_dir=const.ROOT,
-                               captions_file=const.ANNOTATIONS,
-                               transform=const.STANDARD_TRANSFORM,
-                               split='val',
-                               freq_threshold=5)
-    
-    batcher = CocoBatcher
-    if const.IS_GRAPH_MODEL:
-        batcher = CocoGraphsBatcher
-    
-
-    train_loader = DataLoader(
-        dataset=val_dataset,
-        batch_size=const.BATCH_SIZE,
-        num_workers=const.NUM_WORKERS,
-        shuffle=const.SHUFFLE,
-        pin_memory=const.PIN_MEMORY,
-        collate_fn=batcher(),
-    )
-
-    test_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=1,
-        num_workers=const.NUM_WORKERS,
-        shuffle=False,
-        pin_memory=const.PIN_MEMORY,
-        collate_fn=batcher(),
-    )
-
-    val_loader = DataLoader(
-        dataset=test_dataset,
-        batch_size=const.BATCH_SIZE,
-        num_workers=const.NUM_WORKERS,
-        shuffle=const.SHUFFLE,
-        pin_memory=const.PIN_MEMORY,
-        collate_fn=batcher(),
-    )
-
-    return train_loader, val_loader, test_loader, val_dataset, test_dataset, test_dataset, test_dataset.vocab.stoi["<PAD>"]
-
-
 DATASETS = {
     "flickr8k": _get_flickr8k_data,
     "coco": _get_coco_data,
-    "coco_karpathy": _get_coco_karpathy_data,
-    "coco_development": _get_coco_development_data,
+    "coco_karpathy": _get_coco_karpathy_data
 }
 
 
