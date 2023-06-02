@@ -111,9 +111,11 @@ if __name__ == "__main__":
         build_and_train_model()
     
     if const.REGIME.__contains__("val"):
+        eval.DEBUG = True
         load_and_evaluate(const.MODEL_SAVE_NAME, 'val')
 
     if const.REGIME.__contains__("test"):
+        eval.DEBUG = True
         load_and_evaluate(const.MODEL_SAVE_NAME, 'test')
 
 
