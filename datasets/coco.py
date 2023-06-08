@@ -16,7 +16,7 @@ from torchvision.io import ImageReadMode
 
 from constants import Constants as const
 from datasets.vocabulary import Vocabulary
-
+from utils.data_cleaning import preprocess_captions
 
 class CocoCaptionsDataset(VisionDataset):
     def __init__(
@@ -147,7 +147,6 @@ class CocoGraphsBatcher(CocoBatcher):
         
         return images, captions_tensor, lengths, (spatial_graphs, semantic_graphs)
 
-
 class CocoKarpathy(Dataset):
     def __init__(self, 
                  root_dir: str, # /import/gameai-01/eey362/datasets/coco/images
@@ -200,7 +199,8 @@ class CocoKarpathy(Dataset):
         data_id = self.ids[index]
         data = self.data.loc[data_id]
         captions = data['sentences']
-
+        captions = preprocess_captions(captions)
+        
         if const.IS_GRAPH_MODEL:
             image = torch.ones([3, 224, 224])
             spatial_graph = Data(x=self.spatial_graphs.loc[data_id][0][1], 
