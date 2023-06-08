@@ -54,28 +54,12 @@ class Attention(nn.Module):
         self.encoder_transform = nn.Linear(encoder_dim, attention_dim)
         self.decoder_transform = nn.Linear(decoder_dim, attention_dim)
         self.full_att = nn.Linear(attention_dim, 1)
-        self.mlp = nn.Sequential(
-            nn.Linear(encoder_dim * 2 , encoder_dim),
-            nn.ReLU()
-        )
         self.tanh = nn.Tanh()
 
 
     def forward(self, 
                 image_features, 
                 lang_hidden):
-        # mean_image_features = image_features.mean(dim=1)
-
-        # x = torch.cat([lang_hidden, mean_image_features], dim=1)
-        # h = self.mlp(x)
-        
-        # att1 = self.encoder_transform(image_features)  # (batch_size, attention_dim)
-        # att2 = self.decoder_transform(h)  # (batch_size, attention_dim)
-        # att = self.full_att(self.tanh(att1 + att2.unsqueeze(1))).squeeze(2)  # (batch_size, num_pixels)
-        # alpha = F.softmax(att, dim=1)  # (batch_size, num_pixels)
-        # attention_weighted_encoding = (image_features * alpha.unsqueeze(2)).sum(dim=1)  # (batch_size, encoder_dim)
-
-        # return attention_weighted_encoding, alpha
         W_s = self.encoder_transform(image_features)
         U_h = self.decoder_transform(lang_hidden).unsqueeze(1)
         att = self.tanh(W_s + U_h)
@@ -138,7 +122,7 @@ class AttentionLstm(nn.Module):
         hidden = self.init_h(mean_encoder_out)  # (batch_size, decoder_dim)
         cell_state = self.init_c(mean_encoder_out)
         return hidden, cell_state
-    
+
 
     def forward(self, 
                 features, 

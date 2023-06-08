@@ -1,6 +1,5 @@
 from typing import Any
 
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -50,7 +49,7 @@ def train_supervised(model: nn.Module,
             else: 
                 logits = model(images, targets[:,:-1])
             
-            loss = loss_function(logits.permute(0, 2, 1), targets[:,:-1])
+            loss = loss_function(logits.permute(0, 2, 1), targets[:,1:])
             loss.backward()
             optimiser.step()
 
@@ -63,7 +62,7 @@ def train_supervised(model: nn.Module,
         wrapped_loader.set_description(f"Last epoch's loss: {avg_epoch_loss:.4f}")
 
         # Evaluate the model on the validation set
-        if epoch == 1 or epoch % 5 == 0:
+        if epoch == 1 or epoch % 10 == 0:
             val_loss = evaluate(model, val_data_loader)
             val_loss_vals.append([epoch, val_loss])
             global_results, _ = evaluate_caption_model(model, val_data_loader.dataset)
@@ -175,13 +174,12 @@ def evaluate(model: nn.Module,
             graphs[0].cuda()
             graphs[1].cuda()
             logits = model(graphs, targets, lengths)
-            loss = F.cross_entropy(logits.permute(0, 2, 1), targets[:,:-1], ignore_index=data_loader.dataset.vocab.stoi["<PAD>"])
+            loss = F.cross_entropy(logits.permute(0, 2, 1), targets[:,1:], ignore_index=data_loader.dataset.vocab.stoi["<PAD>"])
         else: 
             logits = model(images, targets[:,:-1])
             loss = F.cross_entropy(logits.permute(0, 2, 1), targets, ignore_index=data_loader.dataset.vocab.stoi["<PAD>"])
         
         losses.append(loss.item())
-
     avg_loss = sum(losses)/len(losses)
     print(f"{split} loss: {avg_loss}")
     model.train()
