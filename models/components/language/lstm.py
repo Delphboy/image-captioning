@@ -7,7 +7,7 @@ import torch.nn.functional as F
 
 from constants import Constants as const
 
-TEACHER_FORCING_RATIO = 0.5
+TEACHER_FORCING_RATIO = 1.0
 
 class Lstm(nn.Module):
     def __init__(self, 
