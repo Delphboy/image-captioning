@@ -1,7 +1,6 @@
 from typing import Tuple
 from pycocoevalcap.eval import Bleu, Cider, Meteor, PTBTokenizer, Rouge, Spice
 from torch.utils.data import Dataset
-from tqdm import tqdm
 from constants import Constants as const
 from models.base_captioner import BaseCaptioner
 from utils.helper_functions import caption_array_to_string
@@ -28,8 +27,6 @@ def evaluate_caption_model(model: BaseCaptioner, dataset: Dataset) -> Tuple[dict
         if const.IS_GRAPH_MODEL:
             graphs = data[2]
             graphs = [Batch.from_data_list([graph.cuda()]) for graph in graphs]
-            # graphs[0].cuda()
-            # graphs[1].cuda()
             prediction = model.caption_image(graphs, dataset.vocab)
         else:
             prediction = model.caption_image(imgs, dataset.vocab)

@@ -180,6 +180,7 @@ def evaluate(model: nn.Module,
             loss = F.cross_entropy(logits.permute(0, 2, 1), targets, ignore_index=data_loader.dataset.vocab.stoi["<PAD>"])
         
         losses.append(loss.item())
+        break
     avg_loss = sum(losses)/len(losses)
     print(f"{split} loss: {avg_loss}")
     model.train()

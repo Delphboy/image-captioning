@@ -42,10 +42,6 @@ def build_and_train_model() -> None:
     # Get data
     train_loader, val_loader, test_loader, train_dataset, val_dataset, test_dataset, pad_index = get_data(const.DATASET)
     
-    # FIX: This is a hack to get the validation set to be the test set
-    # train_loader = val_loader
-    # val_loader = test_loader
-
     # Build Model
     vocab_size = len(train_dataset.vocab)
     captioning_model = get_model(model_name=const.MODEL, 

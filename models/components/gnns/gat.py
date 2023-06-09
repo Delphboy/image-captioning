@@ -4,12 +4,11 @@ import torch.nn.functional as F
 from torch_geometric.nn import GATConv, global_mean_pool
 
 
-class GatMeanPool(nn.Module):
+class Gat(nn.Module):
     def __init__(self, in_channels, out_channels):
-        super(GatMeanPool, self).__init__()
+        super(Gat, self).__init__()
         self.gat1 = GATConv(in_channels, out_channels)
         self.gat2 = GATConv(in_channels, out_channels)
-        self.gat3 = GATConv(in_channels, out_channels)
         self.lin = nn.Linear(in_channels, out_channels)
 
 
@@ -23,7 +22,6 @@ class GatMeanPool(nn.Module):
             x = x.relu()
             x = self.gat2(x, edge_index, edge_attr)
             x = x.relu()
-            x = self.gat3(x, edge_index, edge_attr)
         
         if pool:
             x = global_mean_pool(x, batch)

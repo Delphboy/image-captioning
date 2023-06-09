@@ -1,40 +1,52 @@
-from typing import List, Tuple
+from typing import List
 
 import torch
 import torch.nn.functional as F
-from models.components.gnns.gat import GatMeanPool
-from models.components.language.lstm import Lstm, AttentionLstm
+from models.components.gnns.gat import Gat
+from models.components.language.lstm import AttentionLstm
 from models.base_captioner import BaseCaptioner
 from constants import Constants as const
 
-class SpatialGat(BaseCaptioner):
-    def __init__(self, 
-                 embedding_size: int, 
-                 hidden_size: int, 
-                 vocab_size: int, 
+
+class SingleGraphCaptioner(BaseCaptioner):
+    def __init__(self,
+                 embedding_size: int,
+                 hidden_size: int,
+                 vocab_size: int,
                  num_layers: int) -> None:
-        super(SpatialGat, self).__init__(embedding_size, 
-                                         hidden_size, 
-                                         vocab_size, 
-                                         num_layers)
-        self.encoder = GatMeanPool(embedding_size, embedding_size)
+        super(SingleGraphCaptioner, self).__init__(embedding_size,
+                                                   hidden_size,
+                                                   vocab_size,
+                                                   num_layers)
+        self.encoder = Gat(embedding_size, embedding_size)
         self.decoder = AttentionLstm(embedding_size, hidden_size, vocab_size, num_layers)
-    
-    
+
+
     def forward(self, graphs, captions, lengths):   
-        features = self.encoder(graphs[0]) # FIXME: Should intellegently select the graph based on the model
+        features = self.encoder(graphs)
         outputs = self.decoder(features, captions, lengths)
         return outputs
+
+
+    @torch.no_grad()
+    def caption_image(self, input_features, vocab, max_length=20, method='greedy'):
+        assert method in ['greedy', 'beam_search']
+        if method == 'greedy':
+            outputs, _ = self.greedy_caption(input_features, vocab, max_length)
+            return outputs
+        else:
+            outputs, _ = self.beam_search_caption(input_features, vocab, max_length)
+            return outputs
     
 
     @torch.no_grad()
-    def caption_image(self, 
+    def greedy_caption(self, 
                       input_features: List, 
                       vocab, 
                       max_length=20) -> List[str]:
         convert = lambda idxs: [vocab.itos[f"{int(idx)}"] for idx in idxs]
    
-        features = self.encoder(input_features[0])
+        features = self.encoder(input_features)
         batch_size = features.size(0)
 
         hidden, cell_state = self.decoder.init_hidden_state(features)
@@ -62,15 +74,31 @@ class SpatialGat(BaseCaptioner):
         pred_idx = probs.argmax(dim=-1)
         caption_idxs = pred_idx.tolist()[0]
         caption = convert(caption_idxs)
-        return caption
-
-        
+        return caption, probs
 
 
+class SpatialGat(SingleGraphCaptioner):
+    def __init__(self, 
+                 embedding_size: int, 
+                 hidden_size: int, 
+                 vocab_size: int, 
+                 num_layers: int) -> None:
+        super(SpatialGat, self).__init__(embedding_size, 
+                                         hidden_size, 
+                                         vocab_size, 
+                                         num_layers)
+    
+    
+    def forward(self, graphs, captions, lengths):   
+        return super().forward(graphs[0], captions, lengths) 
 
 
+    def caption_image(self, graphs, vocab, max_length=20):
+        return super().caption_image(graphs[0], vocab, max_length)
+    
 
-class SemanticGat(BaseCaptioner):
+
+class SemanticGat(SingleGraphCaptioner):
     def __init__(self, 
                  embedding_size: int, 
                  hidden_size: int, 
@@ -80,13 +108,11 @@ class SemanticGat(BaseCaptioner):
                                          hidden_size, 
                                          vocab_size, 
                                          num_layers)
-        self.encoder = GatMeanPool(embedding_size, embedding_size)
-        self.decoder = Lstm(embedding_size, hidden_size, vocab_size, num_layers)
     
     
-    def forward(self, graphs, captions):   
-        return super().forward(graphs[1], captions) 
-    
+    def forward(self, graphs, captions, lengths):   
+        return super().forward(graphs[1], captions, lengths) 
 
-    def caption_image(self, graphs, vocab, max_lenth=50):
-        return super().caption_image(graphs[1], vocab, max_lenth)
+
+    def caption_image(self, graphs, vocab, max_length=20):
+        return super().caption_image(graphs[1], vocab, max_length)

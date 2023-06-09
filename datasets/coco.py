@@ -187,6 +187,7 @@ class CocoKarpathy(Dataset):
         self.vocab = Vocabulary(freq_threshold)
         self.vocab.build_vocabulary(captions)
 
+        # TODO: Speed this up
         if const.IS_GRAPH_MODEL:
             self.spatial_graphs = torch.load(const.PRECOMPUTED_SPATIAL_GRAPHS[self.split]) if const.PRECOMPUTED_SPATIAL_GRAPHS else None
             self.semantic_graphs = torch.load(const.PRECOMPUTED_SEMANTIC_GRAPHS[self.split]) if const.PRECOMPUTED_SEMANTIC_GRAPHS else None
