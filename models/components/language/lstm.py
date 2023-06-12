@@ -100,6 +100,7 @@ class AttentionLstm(nn.Module):
         self.sigmoid = nn.Sigmoid()
         self.fc = nn.Linear(self.decoder_dim, self.vocab_size)  # linear layer to find scores over vocabulary
         self.init_weights()  # initialize some layers with the uniform distribution
+        self.dropout = nn.Dropout(p=0.5)
 
 
     def init_weights(self):
@@ -152,7 +153,7 @@ class AttentionLstm(nn.Module):
 
             lstm_input = torch.cat([embedding, gated_context], dim=1)
             hidden, cell_state = self.lstm_cell(lstm_input, (hidden, cell_state))
-            logit = self.fc(hidden)
+            logit = self.fc(self.dropout(hidden))
             
             logits[:, t] = logit
             alphas[:, t] = alpha
