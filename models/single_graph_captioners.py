@@ -37,7 +37,7 @@ class SingleGraphCaptioner(BaseCaptioner):
             return outputs
         
         if method == 'beam_search':
-            outputs, _ = self.beam_search_caption(input_features, vocab, max_length, beam_size=3)
+            outputs, _ = self.beam_search_caption(input_features, vocab, max_length, beam_size=5)
             return outputs
     
 
