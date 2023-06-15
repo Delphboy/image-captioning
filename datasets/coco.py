@@ -93,11 +93,17 @@ class CocoBatcher:
         return numericalized_caption
 
 
-    def __call__(self, data):
-        def sorter(batch_element):
-            return len(batch_element[1][0].split(' '))
+    def sorter(self, batch_element):
+        captions = batch_element[1]
+        lengths = [len(cap.split(' ')) for cap in captions]
+        # max_length = max(lengths)
+        # return max_length
+        return lengths[0]
 
-        data.sort(key=sorter, reverse=True)
+
+    def __call__(self, data):
+
+        data.sort(key=self.sorter, reverse=True)
 
         images, captions = zip(*data)
 
@@ -105,15 +111,16 @@ class CocoBatcher:
         images = torch.stack(images, 0)
 
         # Merge captions (from tuple of 1D tensor to 2D tensor).
-        captions = [caption[0] for caption in captions]
+        # captions = [caption[0] for caption in captions]
 
         numericalized_captions = []
-        for caption in captions:
-            numericalized_caption = [self.coco_word_to_ix("<SOS>")]
-            numericalized_caption += self.captions_to_numbers(caption)
-            numericalized_caption += [self.coco_word_to_ix("<EOS>")]
-            tensorised = torch.tensor(numericalized_caption)
-            numericalized_captions.append(tensorised)
+        for cap in captions:
+            for caption in cap:
+                numericalized_caption = [self.coco_word_to_ix("<SOS>")]
+                numericalized_caption += self.captions_to_numbers(caption)
+                numericalized_caption += [self.coco_word_to_ix("<EOS>")]
+                tensorised = torch.tensor(numericalized_caption)
+                numericalized_captions.append(tensorised)
 
         lengths = [len(cap) for cap in numericalized_captions]
         targets = torch.zeros(len(numericalized_captions), max(lengths)).long()
@@ -130,10 +137,7 @@ class CocoGraphsBatcher(CocoBatcher):
 
 
     def __call__(self, data):
-        def sorter(batch_element):
-            return len(batch_element[1][0].split(' '))
-
-        data.sort(key=sorter, reverse=True)
+        data.sort(key=self.sorter, reverse=True)
         images, captions, graphs = zip(*data)
 
         zipped = list(zip(images, captions))

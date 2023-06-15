@@ -51,13 +51,16 @@ def build_and_train_model() -> None:
                                  num_lstm_layers=2)
 
     cross_entropy = nn.CrossEntropyLoss(ignore_index=pad_index)
+
     adam_optimiser = optim.Adam(captioning_model.parameters(), 
                                 lr=const.LEARNING_RATE, 
                                 weight_decay=5e-4)
+
     scheduler = optim.lr_scheduler.StepLR(adam_optimiser,
                                           step_size=100,
                                           gamma=0.1,
                                           verbose=False)
+
     captioning_model, epoch, loss = trainer.train_supervised(model=captioning_model, 
                                                              optimiser=adam_optimiser, 
                                                              scheduler=scheduler,
@@ -66,16 +69,17 @@ def build_and_train_model() -> None:
                                                              val_data_loader=val_loader,
                                                              epoch_count=const.EPOCHS)
 
-    # adam_optimiser = optim.Adam(captioning_model.parameters(), 
-    #                             lr=5e-4, 
-    #                             weight_decay=5e-4)
-    # captioning_model, epoch, loss = trainer.train_self_critical(model=captioning_model, 
-    #                                                    optimiser=adam_optimiser,
-    #                                                    train_data_loader=train_loader, 
-    #                                                    val_data_loader=val_loader,
-    #                                                    epoch_count=1)
+    adam_optimiser = optim.Adam(captioning_model.parameters(), 
+                                lr=1e-5, 
+                                weight_decay=5e-4)
+    
+    captioning_model, epoch, loss = trainer.train_self_critical(model=captioning_model, 
+                                                       optimiser=adam_optimiser,
+                                                       train_data_loader=train_loader, 
+                                                       val_data_loader=val_loader,
+                                                       epoch_count=20)
 
-    save_model_checkpoint(captioning_model, 
+    save_model_checkpoint(captioning_model,
                           adam_optimiser, 
                           epoch, 
                           loss, 

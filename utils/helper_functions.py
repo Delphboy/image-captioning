@@ -2,7 +2,7 @@ import os
 import datetime
 import json
 import numpy as np
-from typing import List
+from typing import List, Optional
 
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -51,20 +51,23 @@ def get_test_image(location, transform=None):
     return img
 
 
-def caption_array_to_string(array: List[str]) -> str:
+def caption_array_to_string(array: List[str],
+                            is_scst:Optional[bool]=False) -> str:
     caption = ""
-
-    for i in range(1, len(array)):
+    eos_count = 0
+    for i in range(0, len(array)):
         item = array[i]
 
         if item == "<SOS>": continue
-        if item == "<EOS>": break
+        if item == "<PAD>": continue
+        if item == "<EOS>":
+            if is_scst and eos_count == 0:
+                eos_count += 1
+                continue
+            break
+        caption += item + " "
 
-        # The captions.txt has a space before fullstops
-        if item != '.':
-            caption += f"{item} "
-        else:
-            caption += "."
+    caption = caption.strip()
 
     return caption
 

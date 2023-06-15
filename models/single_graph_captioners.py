@@ -76,10 +76,9 @@ class SingleGraphCaptioner(BaseCaptioner):
         pred_idx = probs.argmax(dim=-1)
         caption_idxs = pred_idx.tolist()[0]
         caption = convert(caption_idxs)
-        return caption, probs
+        return caption, F.log_softmax(logits, dim=-1) # SCST needs log_probs
     
 
-    @torch.no_grad()
     def beam_search_caption(self, 
                             input_features: List, 
                             vocab: Vocabulary, 
@@ -202,8 +201,9 @@ class SpatialGat(SingleGraphCaptioner):
         return super().forward(graphs[0], captions, lengths) 
 
 
-    def caption_image(self, graphs, vocab, max_length=20):
-        return super().caption_image(graphs[0], vocab, max_length)
+    @torch.no_grad()
+    def caption_image(self, graphs, vocab, max_length=20, method='beam_search'):
+        return super().caption_image(graphs[0], vocab, max_length, method)
     
 
 class SemanticGat(SingleGraphCaptioner):
@@ -222,5 +222,6 @@ class SemanticGat(SingleGraphCaptioner):
         return super().forward(graphs[1], captions, lengths) 
 
 
-    def caption_image(self, graphs, vocab, max_length=20):
-        return super().caption_image(graphs[1], vocab, max_length)
+    @torch.no_grad()
+    def caption_image(self, graphs, vocab, max_length=20, method='beam_search'):
+        return super().caption_image(graphs[1], vocab, max_length, method)

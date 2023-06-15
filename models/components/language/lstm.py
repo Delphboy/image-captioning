@@ -127,7 +127,7 @@ class AttentionLstm(nn.Module):
 
     def forward(self, 
                 features, 
-                captions, 
+                targets, 
                 caption_lengths):
         is_teacher_forcing = True if random.random() < TEACHER_FORCING_RATIO else False
 
@@ -138,7 +138,7 @@ class AttentionLstm(nn.Module):
         hidden, cell_state = self.init_hidden_state(features)  # (batch_size, decoder_dim)
         max_timespan = max((caption_lengths - 1).tolist())
 
-        embeddings = self.embedding(captions)  # (batch_size, max_caption_length, embed_dim)
+        embeddings = self.embedding(targets) if is_teacher_forcing else None  # (batch_size, max_caption_length, embed_dim)
         
         logits = torch.zeros(batch_size, max_timespan, self.vocab_size).to(const.DEVICE)
         alphas = torch.zeros(batch_size, max_timespan, features.size(1)).to(const.DEVICE)

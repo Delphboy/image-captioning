@@ -29,13 +29,14 @@ class DualGraphCaptioner(BaseCaptioner):
 
 
     @torch.no_grad()
-    def caption_image(self, input_features, vocab, max_length=20, method='greedy'):
+    def caption_image(self, input_features, vocab, max_length=20, method='beam_search'):
         assert method in ['greedy', 'beam_search']
         if method == 'greedy':
             outputs, _ = self.greedy_caption(input_features, vocab, max_length)
             return outputs
-        else:
-            outputs, _ = self.beam_search_caption(input_features, vocab, max_length)
+        
+        if method == 'beam_search':
+            outputs, _ = self.beam_search_caption(input_features, vocab, max_length, beam_size=5)
             return outputs
     
 
