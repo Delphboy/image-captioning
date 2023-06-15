@@ -66,7 +66,6 @@ def train_supervised(model: nn.Module,
             optimiser.step()
 
             epoch_loss.append(loss.item())
-            if idx == 50: break
         
         avg_epoch_loss = sum(epoch_loss) / len(epoch_loss)
         scheduler.step()
@@ -76,7 +75,7 @@ def train_supervised(model: nn.Module,
         wrapped_loader.set_description(f"Last epoch's loss: {avg_epoch_loss:.4f}")
 
         # Evaluate the model on the validation set
-        if epoch == 1 or epoch % 20 == 0:
+        if epoch == 1 or epoch % 10 == 0:
             val_loss = evaluate(model, val_data_loader)
             val_loss_vals.append([epoch, val_loss])
             global_results, _ = evaluate_caption_model(model, val_data_loader.dataset)
