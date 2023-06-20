@@ -54,19 +54,15 @@ def get_test_image(location, transform=None):
 def caption_array_to_string(array: List[str],
                             is_scst:Optional[bool]=False) -> str:
     caption = ""
-    eos_count = 0
     for i in range(0, len(array)):
         item = array[i]
 
         if item == "<SOS>": continue
         if item == "<PAD>": continue
         if item == "<EOS>":
-            if is_scst and eos_count == 0:
-                eos_count += 1
-                continue
+            if is_scst: caption += item + " "
             break
         caption += item + " "
-
     caption = caption.strip()
 
     return caption
