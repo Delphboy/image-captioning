@@ -57,8 +57,8 @@ def build_and_train_model() -> None:
                                 weight_decay=5e-4)
 
     scheduler = optim.lr_scheduler.StepLR(adam_optimiser,
-                                          step_size=100,
-                                          gamma=0.1,
+                                          step_size=3,
+                                          gamma=0.8,
                                           verbose=False)
 
     captioning_model, epoch, loss = trainer.train_supervised(model=captioning_model, 
@@ -69,15 +69,22 @@ def build_and_train_model() -> None:
                                                              val_data_loader=val_loader,
                                                              epoch_count=const.EPOCHS)
 
-    adam_optimiser = optim.Adam(captioning_model.parameters(), 
-                                lr=1e-5, 
-                                weight_decay=5e-4)
+    # captioning_model, optimiser, epoch, loss = load_model(model=captioning_model, 
+    #                                                       optimiser=None, 
+    #                                                       save_name=const.MODEL_SAVE_NAME)
+
+    adam_optimiser = optim.Adam(captioning_model.parameters(), lr=5e-7)
+    scheduler = optim.lr_scheduler.StepLR(adam_optimiser,
+                                          step_size=3,
+                                          gamma=0.8,
+                                          verbose=False)
     
     captioning_model, epoch, loss = trainer.train_self_critical(model=captioning_model, 
                                                        optimiser=adam_optimiser,
+                                                       scheduler=scheduler,
                                                        train_data_loader=train_loader, 
                                                        val_data_loader=val_loader,
-                                                       epoch_count=20)
+                                                       epoch_count=5)
 
     save_model_checkpoint(captioning_model,
                           adam_optimiser, 
@@ -117,6 +124,4 @@ if __name__ == "__main__":
     if const.REGIME.__contains__("test"):
         eval.DEBUG = True
         load_and_evaluate(const.MODEL_SAVE_NAME, 'test')
-
-
 
