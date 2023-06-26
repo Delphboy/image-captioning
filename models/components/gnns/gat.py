@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GATConv, global_mean_pool
+from torch_geometric.nn import GATConv, global_mean_pool, BatchNorm
 
 
 class Gat(nn.Module):
@@ -9,6 +9,7 @@ class Gat(nn.Module):
         super(Gat, self).__init__()
         self.gat1 = GATConv(in_channels, out_channels)
         self.gat2 = GATConv(in_channels, out_channels)
+        self.bn = BatchNorm(out_channels)
         self.lin = nn.Linear(in_channels, out_channels)
 
 
@@ -19,10 +20,11 @@ class Gat(nn.Module):
 
         if len(edge_index) > 0:
             x = self.gat1(x, edge_index, edge_attr)
-            x = x.relu()
+            x = F.leaky_relu(x)
             x = self.gat2(x, edge_index, edge_attr)
-            x = x.relu()
-        
+            x = F.leaky_relu(x)
+            x = self.bn(x)
+
         if pool:
             x = global_mean_pool(x, batch)
             x = F.dropout(x, p=0.1, training=self.training)

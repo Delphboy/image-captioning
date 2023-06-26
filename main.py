@@ -73,7 +73,7 @@ def build_and_train_model() -> None:
     #                                                       optimiser=None, 
     #                                                       save_name=const.MODEL_SAVE_NAME)
 
-    adam_optimiser = optim.Adam(captioning_model.parameters(), lr=5e-7)
+    adam_optimiser = optim.Adam(captioning_model.parameters(), lr=5e-6)
     scheduler = optim.lr_scheduler.StepLR(adam_optimiser,
                                           step_size=3,
                                           gamma=0.8,
@@ -90,7 +90,7 @@ def build_and_train_model() -> None:
                           adam_optimiser, 
                           epoch, 
                           loss, 
-                          save_name=const.MODEL_SAVE_NAME)
+                          save_name=const.MODEL_SAVE_NAME+'-with-scst')
     
     plot_training(trainer.train_loss_vals,
                   trainer.val_loss_vals)

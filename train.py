@@ -12,13 +12,13 @@ from torch_geometric.data import Data, Batch
 
 from constants import Constants as const
 from models.base_captioner import BaseCaptioner
-from utils.helper_functions import caption_array_to_string
+from utils.helper_functions import caption_array_to_string, clip_gradient
 from tqdm import tqdm
-from pycocoevalcap.eval import Rouge, Bleu, Meteor
+from pycocoevalcap.eval import Rouge, Bleu, Meteor, PTBTokenizer
 from eval import evaluate_caption_model
 
 # sys.path.append("pyciderevalcap")
-# from cider.pyciderevalcap.ciderD.ciderD import CiderD
+from cider.pyciderevalcap.ciderD.ciderD import CiderD
 
 train_loss_vals =  []
 val_loss_vals = []
@@ -144,14 +144,12 @@ def train_self_critical(model: BaseCaptioner,
                 for j in range(5):
                     caption = targets[b * 5 + j]
                     ref_caps = caption_array_to_string(convert(caption), 
-                                                       is_scst=True)
+                                                       is_scst=False)
                     captions.append(ref_caps)
                 references[b] = [cap for cap in captions]
             
 
             baselines = {}
-            spatial_graphs = graphs[0].to_data_list()
-            semantic_graphs = graphs[1].to_data_list()
 
             logits = model(graphs, targets[0:-1:5,:-1], lengths)
             probs = F.softmax(logits, dim=2)
@@ -164,17 +162,25 @@ def train_self_critical(model: BaseCaptioner,
                 # Samples
                 for t in range(pred_idx.shape[1]):
                     sampled_probs[b][t] = probs[b][t][pred_idx[b][t]]
-                samples[b] = [caption_array_to_string(convert(pred_idx[b]), is_scst=True)]
+                samples[b] = [caption_array_to_string(convert(pred_idx[b]), is_scst=False)]
                 
-                # Baselines
-                _graphs = [Batch.from_data_list([spatial_graphs[b]]), Batch.from_data_list([semantic_graphs[b]])] # convert to single graph batch for GAT
-                hyp = caption_array_to_string(model.caption_image(_graphs, vocab, method='greedy'),
-                                              is_scst=True)
-                baselines[b] = [hyp]
+            predictions = model.caption_image(graphs, vocab, method='greedy')
+
+            for i in range(len(predictions)):
+                baselines[i] = [caption_array_to_string(predictions[i], is_scst=False)]
 
 
             log_probabilities = torch.log(sampled_probs)
-            log_probabilities = log_probabilities.mean(dim=-1)
+            log_probabilities = log_probabilities.mean(dim=-1) # could also be sum
+
+            # samples_ = {str(k): [{u'caption': v[0]}] for k, v in samples.items()}
+            # references_ ={str(k): [{u'caption': caption} for caption in v] for k, v in references.items()}
+            # tokenizer = PTBTokenizer()
+            # _t = tokenizer.tokenize(samples_)
+            # _r = tokenizer.tokenize(references_)
+            # _c = CiderD(df='coco-val')
+            # _reward = _c.compute_score(_r, _t)[1]
+
 
             cider = Rouge() # TODO: Switch to CiderD using the new library
             cider_ = Rouge()
@@ -202,7 +208,6 @@ def train_self_critical(model: BaseCaptioner,
             print(f"Loss for batch {idx}: {loss.item()}")
 
             loss.backward()
-            # torch.nn.utils.clip_grad_norm_(filter(lambda p: p.requires_grad, model.parameters()), 0.1)
             optimiser.step()
             running_loss += loss.item()
 
@@ -214,7 +219,7 @@ def train_self_critical(model: BaseCaptioner,
         train_loss_vals.append([const.EPOCHS + epoch, train_loss])       
         
         # Test the model on the validation set with CIDEr loss
-        if epoch == 1 or epoch % 5 == 0:            
+        if epoch == 1 or epoch % 1 == 0:            
             global_results, _ = evaluate_caption_model(model, val_data_loader.dataset)
             val_performance_vals.append([const.EPOCHS + epoch, global_results])
             model.train()

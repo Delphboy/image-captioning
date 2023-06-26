@@ -120,4 +120,5 @@ def get_model(model_name: str,
     #     model= nn.parallel.DistributedDataParallel(model)       
     model.to(const.DEVICE)
 
+    print(f"Model created with {sum(p.numel() for p in model.parameters())} parameters")
     return model

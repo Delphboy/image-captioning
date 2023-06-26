@@ -54,7 +54,7 @@ class Attention(nn.Module):
         self.encoder_transform = nn.Linear(encoder_dim, attention_dim)
         self.decoder_transform = nn.Linear(decoder_dim, attention_dim)
         self.full_att = nn.Linear(attention_dim, 1)
-        self.tanh = nn.Tanh()
+        self.leaky_relu = nn.LeakyReLU()
 
 
     def forward(self, 
@@ -62,7 +62,7 @@ class Attention(nn.Module):
                 lang_hidden):
         W_s = self.encoder_transform(image_features)
         U_h = self.decoder_transform(lang_hidden).unsqueeze(1)
-        att = self.tanh(W_s + U_h)
+        att = self.leaky_relu(W_s + U_h)
         e = self.full_att(att).squeeze(2)
         alpha = F.softmax(e, dim=1)
         context = (image_features * alpha.unsqueeze(2)).sum(1)
@@ -130,6 +130,7 @@ class AttentionLstm(nn.Module):
                 targets, 
                 caption_lengths):
         is_teacher_forcing = True if random.random() < TEACHER_FORCING_RATIO else False
+        is_teacher_forcing = False if targets is None else is_teacher_forcing
 
         batch_size = features.size(0)
         # features = features.view(batch_size, -1, self.encoder_dim)  # (batch_size, num_features, encoder_dim)
@@ -143,6 +144,7 @@ class AttentionLstm(nn.Module):
         logits = torch.zeros(batch_size, max_timespan, self.vocab_size).to(const.DEVICE)
         alphas = torch.zeros(batch_size, max_timespan, features.size(1)).to(const.DEVICE)
         pred_idx = torch.tensor([1] * batch_size).to(const.DEVICE)
+
         for t in range(max_timespan):
             context, alpha = self.attention(features, hidden)
             gate = self.sigmoid(self.f_beta(hidden)) 
