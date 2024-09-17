@@ -1,270 +1,561 @@
+import argparse
+import itertools
+import multiprocessing
 import os
-import sys
-from typing import Any
+import random
+from shutil import copyfile
+
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torch.utils.data import DataLoader
-
-from torch_geometric.data import Data, Batch
-
-from constants import Constants as const
-from models.base_captioner import BaseCaptioner
-from utils.helper_functions import caption_array_to_string, clip_gradient
+import torch.multiprocessing
 from tqdm import tqdm
-from pycocoevalcap.eval import Rouge, Bleu, Meteor, PTBTokenizer
-from eval import evaluate_caption_model
 
-# sys.path.append("pyciderevalcap")
-from cider.pyciderevalcap.ciderD.ciderD import CiderD
+import evaluation
+from evaluation import Cider, PTBTokenizer
+from utils import factories
+from utils.model_storage import load_model, save_model
+from utils.plots import plot_training_charts
 
-train_loss_vals =  []
-val_loss_vals = []
-val_performance_vals = []
+import wandb
+
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+print("Setting DEVICE to:", DEVICE)
 
 
-def train_supervised(model: nn.Module,
-                     optimiser: optim.Optimizer,
-                     scheduler: optim.lr_scheduler._LRScheduler,
-                     loss_function: Any,
-                     train_data_loader: DataLoader,
-                     val_data_loader: DataLoader,
-                     epoch_count: int=10):
-    
-    EARLY_STOP_THRESHOLD = 5
-    early_stopping_count = 0
-    avg_epoch_loss = 10
+def train_epoch_xe(
+    model,
+    dataloader,
+    loss_fn,
+    optim,
+    scheduler,
+    epoch,
+    vocab_size,
+):
     model.train()
+    running_loss = 0.0
 
-    for epoch in range(1, epoch_count+1):
-        epoch_loss= []
-        wrapped_loader = tqdm(enumerate(train_data_loader), desc=f"Last epoch's loss: {avg_epoch_loss:.4f}")
-        for idx, data in wrapped_loader:
-            images = data[0].to(const.DEVICE, non_blocking=True)
+    desc = "Epoch %d - train" % epoch
 
-            targets = data[1].to(const.DEVICE, non_blocking=True)
-            targets = targets[0:-1:5,:]
-            
-            lengths = data[2].to(const.DEVICE, non_blocking=True)
-            lengths = lengths[0:-1:5]
+    with tqdm(desc=desc, unit="it", total=len(dataloader)) as pbar:
+        for it, (input_features, targets, _) in enumerate(dataloader):
+            optim.zero_grad()
+            input_features = input_features.to(DEVICE)
+            targets = targets.to(DEVICE)
 
-            # Remove excess padding
-            targets = targets[:,:max(lengths)] 
-            
-            optimiser.zero_grad()
-            if const.IS_GRAPH_MODEL:
-                graphs = data[3]
-                graphs[0].to(const.DEVICE, non_blocking=True)
-                graphs[0].edge_index.to('cpu')
-                graphs[1].to(const.DEVICE, non_blocking=True)
-                graphs[1].edge_index.to('cpu')
-                logits = model(graphs, targets[:,:-1], lengths)
-            else: 
-                logits = model(images, targets[:,:-1])
-                
-            loss = loss_function(logits.permute(0, 2, 1), 
-                                 targets[:,1:])
-            loss.backward()
-            # torch.nn.utils.clip_grad_norm_(filter(lambda p: p.requires_grad, model.parameters()), 0.1)
-            optimiser.step()
+            out = model(input_features, targets)
+            captions_gt = targets[:, 1:].contiguous()
+            out = out[:, :-1].contiguous()
+            loss = loss_fn(out.view(-1, vocab_size), captions_gt.view(-1))
 
-            epoch_loss.append(loss.item())
-        
-        avg_epoch_loss = sum(epoch_loss) / len(epoch_loss)
-        scheduler.step()
+            loss.backward(loss)
 
-        print(f"Loss for epoch {epoch}/{epoch_count} | {avg_epoch_loss}")
-        train_loss_vals.append([epoch, avg_epoch_loss])
-        wrapped_loader.set_description(f"Last epoch's loss: {avg_epoch_loss:.4f}")
+            optim.step()
 
-        # Evaluate the model on the validation set
-        if epoch == 1 or epoch % 10 == 0:
-            val_loss = evaluate(model, val_data_loader)
-            val_loss_vals.append([epoch, val_loss])
-            global_results, _ = evaluate_caption_model(model, val_data_loader.dataset)
-            val_performance_vals.append([epoch, global_results])
-            model.train()
+            this_loss = loss.item()
+            running_loss += this_loss
 
-        
-        if avg_epoch_loss > train_loss_vals[-1][1] or val_loss > val_loss_vals[-1][1]:
-            early_stopping_count += 1
-            print("Early stopping count increased")
-            if early_stopping_count > EARLY_STOP_THRESHOLD:
-                print(f"Early stopping after {epoch} epochs")
-                return model, epoch, avg_epoch_loss
-        else:
-            early_stopping_count = 0
-    
-    print(f"Training complete after {epoch_count} epochs of Cross Entropy Loss Training")
-    print(f"Final training loss: {train_loss_vals[-1]}")
-    print(f"Final validation loss: {val_loss_vals[-1][1]}")
-    print(f"Final learning rate: {optimiser.param_groups[0]['lr']}")
-    
-    return model, epoch, avg_epoch_loss
+            wandb.log({"train_loss": this_loss})
+
+            pbar.set_postfix(loss=running_loss / (it + 1))
+            pbar.update()
+
+    scheduler.step()
+    loss = running_loss / (it + 1)
+    return loss
 
 
-def train_self_critical(model: BaseCaptioner,
-                        optimiser: optim.Optimizer,
-                        scheduler: optim.lr_scheduler._LRScheduler,
-                        train_data_loader: DataLoader,
-                        val_data_loader: DataLoader,
-                        epoch_count: int=10):
-    vocab = train_data_loader.dataset.vocab
-    convert = lambda idxs: [vocab.itos[f"{int(idx)}"] for idx in idxs]
-
+def train_epoch_scst(model, dataloader, optim, cider, epoch, vocab, beam_size=3):
+    # Training with self-critical
+    tokenizer_pool = multiprocessing.Pool()
+    running_reward = 0.0
+    running_reward_baseline = 0.0
     model.train()
+    running_loss = 0.0
+    seq_len = 20
 
-    for epoch in range(1, epoch_count+1):
-        running_loss = 0.0
-        for idx, data in enumerate(train_data_loader):
-            images = data[0].to(const.DEVICE, non_blocking=True)
-            lengths = data[2].to(const.DEVICE, non_blocking=True)
-            lengths = lengths[0:-1:5] # Only want lengths of captions being predicted
-            
-            targets = data[1].to(const.DEVICE, non_blocking=True)
-            
-            graphs = data[3]
-            graphs[0].to(const.DEVICE, non_blocking=True)
-            graphs[0].edge_index.to('cpu')
-            graphs[1].to(const.DEVICE, non_blocking=True)
-            graphs[1].edge_index.to('cpu')
+    desc = "Epoch %d - train" % epoch
+    with tqdm(desc=desc, unit="it", total=len(dataloader)) as pbar:
+        for it, (detections, _, caps_gt) in enumerate(dataloader):
+            detections = [det.to(DEVICE) for det in detections]
+            outs, log_probs = model.beam_search(
+                detections,
+                seq_len,
+                vocab.vocab.stoi["<eos>"],
+                beam_size,
+            )
+            optim.zero_grad()
 
-            BATCH_SIZE = images.shape[0]
+            # Rewards
+            caps_gen = vocab.decode(outs.view(-1, seq_len))
+            caps_gt = list(
+                itertools.chain(
+                    *(
+                        [
+                            c,
+                        ]
+                        * beam_size
+                        for c in caps_gt
+                    )
+                )
+            )
+            caps_gen, caps_gt = tokenizer_pool.map(
+                evaluation.PTBTokenizer.tokenize, [caps_gen, caps_gt]
+            )
+            reward = cider.compute_score(caps_gt, caps_gen)[1].astype(np.float32)
+            reward = (
+                torch.from_numpy(reward)
+                .to(DEVICE)
+                .view(detections[0].shape[0], beam_size)
+            )
+            reward_baseline = torch.mean(reward, -1, keepdim=True)
+            loss = -torch.mean(log_probs, -1) * (reward - reward_baseline)
 
-            optimiser.zero_grad()
-
-            ##################################################################
-
-            # Ground Truth
-            references = {}
-            for b in range(BATCH_SIZE):
-                captions = []
-                for j in range(5):
-                    caption = targets[b * 5 + j]
-                    ref_caps = caption_array_to_string(convert(caption), 
-                                                       is_scst=False)
-                    captions.append(ref_caps)
-                references[b] = [cap for cap in captions]
-            
-
-            baselines = {}
-
-            logits = model(graphs, targets[0:-1:5,:-1], lengths)
-            probs = F.softmax(logits, dim=2)
-            pred_idx = torch.argmax(probs, dim=-1)
-            
-            samples = {}
-            sampled_probs = torch.zeros((BATCH_SIZE, pred_idx.shape[1])).to(const.DEVICE)
-            
-            for b in range(BATCH_SIZE):
-                # Samples
-                for t in range(pred_idx.shape[1]):
-                    sampled_probs[b][t] = probs[b][t][pred_idx[b][t]]
-                samples[b] = [caption_array_to_string(convert(pred_idx[b]), is_scst=False)]
-                
-            predictions = model.caption_image(graphs, vocab, method='greedy')
-
-            for i in range(len(predictions)):
-                baselines[i] = [caption_array_to_string(predictions[i], is_scst=False)]
-
-
-            log_probabilities = torch.log(sampled_probs)
-            log_probabilities = log_probabilities.mean(dim=-1) # could also be sum
-
-            # samples_ = {str(k): [{u'caption': v[0]}] for k, v in samples.items()}
-            # references_ ={str(k): [{u'caption': caption} for caption in v] for k, v in references.items()}
-            # tokenizer = PTBTokenizer()
-            # _t = tokenizer.tokenize(samples_)
-            # _r = tokenizer.tokenize(references_)
-            # _c = CiderD(df='coco-val')
-            # _reward = _c.compute_score(_r, _t)[1]
-
-
-            cider = Rouge() # TODO: Switch to CiderD using the new library
-            cider_ = Rouge()
-            # c = CiderD(df='coco-val')
-            # _r = c.compute_score(references, samples)
-
-            reward = cider_.compute_score(references, samples)[1]
-            reward = torch.tensor(reward).to(const.DEVICE)
-            
-            baseline_rewards = cider.compute_score(references, baselines)[1]
-            baseline_rewards = torch.tensor(baseline_rewards).to(const.DEVICE)
-
-            loss = -log_probabilities * (reward - baseline_rewards)
             loss = loss.mean()
-
-            ##################################################################
-
-            # print(f"Reference: {[references]}")
-            # print(f"Test time: {baselines}")
-            # print(f"Train time: {samples}")
-            # print()
-
-            ##################################################################
-            
-            print(f"Loss for batch {idx}: {loss.item()}")
-
             loss.backward()
-            optimiser.step()
-            running_loss += loss.item()
+            optim.step()
 
-        print(f"Loss for epoch {epoch}/{epoch_count} | {running_loss/len(train_data_loader)}")
-        scheduler.step()
-        val_loss = evaluate(model, val_data_loader)
-        val_loss_vals.append([const.EPOCHS + epoch, val_loss])
-        train_loss = evaluate(model, train_data_loader)
-        train_loss_vals.append([const.EPOCHS + epoch, train_loss])       
-        
-        # Test the model on the validation set with CIDEr loss
-        if epoch == 1 or epoch % 1 == 0:            
-            global_results, _ = evaluate_caption_model(model, val_data_loader.dataset)
-            val_performance_vals.append([const.EPOCHS + epoch, global_results])
-            model.train()
-    
-    return model, const.EPOCHS + epoch, None
-            
+            running_loss += loss.item()
+            running_reward += reward.mean().item()
+            running_reward_baseline += reward_baseline.mean().item()
+            pbar.set_postfix(
+                loss=running_loss / (it + 1),
+                reward=running_reward / (it + 1),
+                reward_baseline=running_reward_baseline / (it + 1),
+            )
+            pbar.update()
+
+    loss = running_loss / len(dataloader)
+    reward = running_reward / len(dataloader)
+    reward_baseline = running_reward_baseline / len(dataloader)
+    return loss, reward, reward_baseline
+
 
 @torch.no_grad()
-def evaluate(model: nn.Module, 
-             data_loader: DataLoader,
-             split: str="validation"):
+def evaluate_epoch_xe(model, dataloader, loss_fn, epoch):
     model.eval()
-    
-    losses = []
-    enumerator = tqdm(enumerate(data_loader))
-    for idx, data in enumerator:
-        images = data[0].to(const.DEVICE, non_blocking=True)
-        
-        targets = data[1].to(const.DEVICE, non_blocking=True)
-        targets = targets[0:-1:5,:]
-        
-        lengths = data[2].to(const.DEVICE, non_blocking=True)
-        lengths = lengths[0:-1:5]
+    running_loss = 0.0
 
-        # Remove excess padding
-        targets = targets[:,:max(lengths)] 
-        
-        if const.IS_GRAPH_MODEL:
-            graphs = data[3]
-            graphs[0].cuda()
-            graphs[1].cuda()
-            logits = model(graphs, targets, lengths)
-            loss = F.cross_entropy(logits.permute(0, 2, 1), 
-                                   targets[:,1:], 
-                                   ignore_index=data_loader.dataset.vocab.stoi["<PAD>"])
-        else: 
-            logits = model(images, targets[:,:-1])
-            loss = F.cross_entropy(logits.permute(0, 2, 1), 
-                                   targets, 
-                                   ignore_index=data_loader.dataset.vocab.stoi["<PAD>"])
-        
-        losses.append(loss.item())
-    
-    avg_loss = sum(losses)/len(losses)
-    print(f"{split} loss: {avg_loss}")
-    model.train()
-    return avg_loss
+    desc = "Epoch %d - validation" % epoch
 
+    with tqdm(desc=desc, unit="it", total=len(dataloader)) as pbar:
+        for it, (input_features, targets, _) in enumerate(dataloader):
+            input_features = input_features.to(DEVICE)
+            targets = targets.to(DEVICE)
+
+            outputs = model(input_features, targets[:, :-1])
+
+            loss = loss_fn(
+                outputs.reshape(-1, outputs.shape[2]), targets[:, 1:].reshape(-1)
+            )
+
+            this_loss = loss.item()
+            running_loss += this_loss
+
+            wandb.log({"val_loss": this_loss})
+
+            pbar.set_postfix(loss=running_loss / (it + 1))
+            pbar.update()
+
+    loss = running_loss / (it + 1)
+    return loss
+
+
+@torch.no_grad()
+def evaluate_metrics(
+    model, dataloader, text_field, epoch, beam_width=5, is_test=False, max_len=30
+):
+    eos_index = text_field.vocab._stoi[text_field.vocab.get_special_token("eos_token")]
+    model.eval()
+    gen = {}
+    gts = {}
+    with tqdm(
+        desc="Epoch %d - evaluation" % epoch, unit="it", total=len(dataloader)
+    ) as pbar:
+        for it, (input_features, _, caps_gt) in enumerate(iter(dataloader)):
+            input_features = input_features.to(DEVICE)
+            with torch.no_grad():
+                out = model.beam_search(
+                    visual=input_features,
+                    max_len=max_len,
+                    eos_idx=eos_index,
+                    beam_size=beam_width,
+                )
+                caps_gen = text_field.decode(out, join_words=True)
+            for i in range(len(caps_gt)):
+                gen[f"{it}_{i}"] = [caps_gen[i]]
+                gts[f"{it}_{i}"] = [caption for caption in caps_gt[i]]
+            pbar.update()
+
+    print("-" * 10)
+    print(f"Predicted: {gen['0_0']}")
+    print("Ground Truth:")
+    print([f"{g}" for g in gts["0_0"]])
+    print("-" * 10)
+
+    gts = evaluation.PTBTokenizer.tokenize(gts)
+    gen = evaluation.PTBTokenizer.tokenize(gen)
+    scores, _ = evaluation.compute_scores(gts, gen, is_test=is_test)
+
+    if is_test:
+        test_metrics = {
+            "BLEU-1": scores["BLEU"][0],
+            "BLEU-2": scores["BLEU"][1],
+            "BLEU-3": scores["BLEU"][2],
+            "BLEU-4": scores["BLEU"][3],
+            "METEOR": scores["METEOR"],
+            "ROUGE": scores["ROUGE"],
+            "CIDEr": scores["CIDEr"],
+            "SPICE": scores["SPICE"],
+        }
+        data = [[k, v] for k, v in test_metrics.items()]
+        table = wandb.Table(data=data, columns=["Metric", "Score"])
+        wandb.log(
+            {
+                "Test Metrics": wandb.plot.bar(
+                    table, "Metric", "Score", title="Test Metrics"
+                )
+            }
+        )
+    else:
+        wandb.log(
+            {
+                "val/BLEU-1": scores["BLEU"][0],
+                "val/BLEU-2": scores["BLEU"][1],
+                "val/BLEU-3": scores["BLEU"][2],
+                "val/BLEU-4": scores["BLEU"][3],
+                "val/METEOR": scores["METEOR"],
+                "val/ROUGE": scores["ROUGE"],
+                "val/CIDEr": scores["CIDEr"],
+            }
+        )
+
+    return scores
+
+
+if __name__ == "__main__":
+    torch.multiprocessing.set_sharing_strategy("file_system")
+    # set up argument parser
+    parser = argparse.ArgumentParser(description="Train model")
+
+    # Dataset arguments
+    parser.add_argument(
+        "--captions_file",
+        type=str,
+        default=None,
+        required=True,
+        help="Path to the Karpathy JSON file",
+    )
+    parser.add_argument(
+        "--butd_root",
+        type=str,
+        default=None,
+        required=True,
+        help="Path to the BUTD image features",
+    )
+    parser.add_argument(
+        "--sgae_root",
+        type=str,
+        default=None,
+        required=False,
+        help="Path to the SGAE semantic graph data",
+    )
+    parser.add_argument(
+        "--vsua_root",
+        type=str,
+        default=None,
+        required=False,
+        help="Path to the VSUA geometric graph data",
+    )
+    parser.add_argument(
+        "--input_mode",
+        type=str,
+        required=True,
+        help="Type of input to use",
+        choices=["butd", "semantic_basic", "spatial_basic"],
+    )
+    parser.add_argument(
+        "--feature_limit",
+        type=int,
+        default=50,
+        help="How many features to use per image (default: 50)",
+    )
+
+    # General Model parameters
+    parser.add_argument(
+        "--token_dim", type=int, default=768, help="Dimension of the token space"
+    )
+
+    # Encoder Model Parameters
+    parser.add_argument(
+        "--enc_model_type",
+        type=str,
+        default="gcn",
+        choices=["none", "pool", "gcn", "gin", "gat"],
+        help="Type of encoder model to use",
+    )
+    parser.add_argument(
+        "--enc_num_layers", type=int, default=2, help="Number of encoder layers"
+    )
+
+    # Decoder Model Parameters
+    parser.add_argument(
+        "--dec_lang_model",
+        type=str,
+        default="dual_lstm",
+        help="Which language model to use",
+        choices=["dual_lstm", "lstm"],
+    )
+    parser.add_argument(
+        "--dec_num_layers",
+        type=int,
+        default=1,
+        help="Number of layers to use in the language model",
+    )
+
+    # Training parameters
+    parser.add_argument(
+        "--exp_name",
+        type=str,
+        default=None,
+        required=True,
+        help="Name of the experiment",
+    )
+    parser.add_argument("--warm_up", type=int, default=1, help="Warm up steps")
+    parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
+    parser.add_argument("--epochs", type=int, default=20, help="maximum epochs")
+    parser.add_argument(
+        "--force_rl_after", type=int, default=-1, help="force RL after (-1 to disable)"
+    )
+    parser.add_argument(
+        "--learning_rate", type=float, default=5e-4, help="Learning rate"
+    )
+    parser.add_argument(
+        "--workers", type=int, default=4, help="Number of pytorch dataloader workers"
+    )
+    parser.add_argument(
+        "--seed", type=int, default=-1, help="Random seed (-1) for no seed"
+    )
+    parser.add_argument(
+        "--patience",
+        type=int,
+        default=-1,
+        help="Patience for early stopping (-1 to disable)",
+    )
+
+    # Training options
+    parser.add_argument("--resume_last", action="store_true")
+    parser.add_argument("--resume_best", action="store_true")
+    parser.add_argument(
+        "--checkpoint_location",
+        type=str,
+        default="saved_models",
+        help="Path to checkpoint save directory",
+    )
+    parser.add_argument("--beam_width", type=int, default=5, help="Beam width")
+    parser.add_argument("--max_len", type=int, default=30, help="Maximum decode length")
+
+    # Regularisation and Normalisation settings
+    parser.add_argument("--dropout", type=float, default=0.3, help="Dropout rate")
+
+    args = parser.parse_args()
+
+    # Set random seed
+    if args.seed != -1:
+        seed = args.seed
+        np.random.seed(seed)
+        random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+
+        # This is makes things deterministic
+        torch.use_deterministic_algorithms(True, warn_only=True)
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
+    if not os.path.exists(args.checkpoint_location):
+        os.makedirs(args.checkpoint_location)
+
+    wandb_location = os.path.join(args.checkpoint_location, "wandb")
+    if not os.path.exists(wandb_location):
+        os.makedirs(wandb_location)
+
+    wandb.init(
+        project="image-captioning", name=args.exp_name, config=args, dir=wandb_location
+    )
+
+    # Load dataset
+    train_data, val_data, test_data = factories.get_datasets(args)
+    vocab = train_data.vocab
+    vocab_size = len(vocab)
+    train_dataloader = factories.get_dataloader(train_data, args)
+    val_dataloader = factories.get_dataloader(
+        val_data,
+        args,
+        shuffle=False,
+    )
+    test_dataloader = factories.get_dataloader(
+        test_data,
+        args,
+        shuffle=False,
+    )
+
+    # SCST Things:
+    scst_train_data, _, _ = factories.get_datasets(args)
+    # TODO: Handle the different batch size needed for SCST
+    scst_train_dataloader = factories.get_dataloader(scst_train_data, args)
+    ref_caps_train = list(scst_train_data.text)
+    cider_train = Cider(PTBTokenizer.tokenize(ref_caps_train))
+
+    # Load model
+    model = factories.get_model(args, vocab).to(DEVICE)
+    wandb.watch(
+        model,
+        criterion=nn.NLLLoss(
+            ignore_index=vocab.stoi(vocab.get_special_token("pad_token"))
+        ),
+        log="all",
+        log_freq=10,
+    )
+
+    # Setup optimiser and loss function
+    optim = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
+    scheduler = torch.optim.lr_scheduler.StepLR(optim, 3, 0.8)
+
+    loss_fn = nn.NLLLoss(ignore_index=vocab.stoi(vocab.get_special_token("pad_token")))
+
+    use_rl = False
+    best_cider = 0.0
+    patience = 0
+    epoch = 1
+    training_losses = []
+    training_scores = []
+    validation_losses = []
+    validation_scores = []
+
+    if args.resume_last or args.resume_best:
+        if args.resume_last:
+            load_best = False
+        else:
+            load_best = True
+
+        model, optim, scheduler, epoch, patience, best_cider, use_rl = load_model(
+            model, optim, scheduler, args, load_best
+        )
+        print(f"Resuming from epoch {epoch} with best cider {best_cider}")
+
+        if (not use_rl) and (epoch > args.force_rl_after and args.force_rl_after > 0):
+            print("Switching to RL")
+            use_rl = True
+            optim = torch.optim.Adam(model.parameters(), lr=5e-6)
+
+    # Training loop
+    for epoch in range(epoch, args.epochs + 1):
+        if use_rl:
+            training_loss, reward, reward_baseline = train_epoch_scst(
+                model, scst_train_dataloader, optim, cider_train, epoch, scst_train_data
+            )
+            print(
+                f"Epoch {epoch} - train loss: {training_loss} - reward: {reward} - reward_baseline: {reward_baseline}"
+            )
+        else:
+            training_loss = train_epoch_xe(
+                model,
+                train_dataloader,
+                loss_fn,
+                optim,
+                scheduler,
+                epoch,
+                vocab_size,
+            )
+        training_losses.append(training_loss)
+
+        # Validation
+        with torch.no_grad():
+            val_loss = evaluate_epoch_xe(model, val_dataloader, loss_fn, epoch)
+            validation_losses.append(val_loss)
+            scores = evaluate_metrics(
+                model,
+                val_dataloader,
+                train_data,
+                epoch,
+                beam_width=args.beam_width,
+                max_len=args.max_len,
+            )
+            validation_scores.append(scores)
+
+        print(f"Epoch {epoch} - train loss: {training_loss}")
+        print(f"Epoch {epoch} - validation loss: {val_loss}")
+        print(f"Epoch {epoch} - validation scores: {scores}")
+
+        cider = scores["CIDEr"]
+
+        # Save model
+        save_model(
+            model,
+            optim,
+            scheduler,
+            val_loss,
+            cider,
+            epoch,
+            patience,
+            best_cider,
+            use_rl,
+            args,
+        )
+
+        if cider > best_cider:
+            best_cider = cider
+            patience = 0
+            print("Saving best model")
+            last = f"{args.checkpoint_location}/{args.exp_name}_last.pth"
+            best = f"{args.checkpoint_location}/{args.exp_name}_best.pth"
+            copyfile(last, best)
+        else:
+            patience += 1
+
+        if patience == args.patience or (epoch == args.force_rl_after and not use_rl):
+            if not use_rl and args.force_rl_after > -1:
+                print("Switching to RL")
+                use_rl = True
+
+                # load best model
+                model, optim, epoch, patience, best_cider, use_rl = load_model(
+                    model, optim, args, True
+                )
+
+                optim = torch.optim.Adam(model.parameters(), lr=5e-6)
+            else:
+                print("Early stopping")
+                break
+        print()
+
+    # Load best model
+    model, optim, epoch, patience, best_cider, use_rl = load_model(
+        model, optim, args, True
+    )
+
+    # Evaluate on test set
+    print("*" * 80)
+    with torch.no_grad():
+        scores = evaluate_metrics(
+            model,
+            test_dataloader,
+            test_data,
+            0,
+            beam_width=args.beam_width,
+            is_test=True,
+            max_len=args.max_len,
+        )
+        print(f"Test scores: {scores}")
+    print("*" * 80)
+
+    wandb.finish()
+    plot_training_charts(
+        training_losses,
+        validation_losses,
+        validation_scores,
+        args.exp_name,
+    )

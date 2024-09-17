@@ -133,3 +133,24 @@ saves/
 splits/
 talk_files/
 log_files/
+checkpoints/
+wandb/
+dataset/coco_talk.json
+data/annotations/
+evaluation/meteor/meteor-1.5.jar
+evaluation/meteor/data/
+
+tensorboard_logs/
+*.pkl
+saved_models/
+*_talk.json
+karpathy_splits/
+logs/
+logs-old/
+evaluation/tmp*
+evaluation/meteor/meteor.tgz
+
+# SPICE
+evaluation/spice/tmp/
+evaluation/spice/cache/
+wandb/
