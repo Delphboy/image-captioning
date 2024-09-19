@@ -11,7 +11,7 @@ class BeamSearch(object):
         self.bos_idx = model.bos_idx
 
     def search(self, features):
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
         if self.model.is_graph_encoder:
             batch_size = features.batch_size
         else:

@@ -19,7 +19,7 @@ from utils.plots import plot_training_charts
 
 import wandb
 
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
 
 print("Setting DEVICE to:", DEVICE)
 

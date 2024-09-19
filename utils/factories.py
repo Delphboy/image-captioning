@@ -6,6 +6,7 @@ from models.captioning_model import CaptioningModel
 from models.encoders.gnn import Gnn
 from models.encoders.simple import PoolEncoder, NoneEncoder
 from models.decoders.lstm import DecoderRNN
+from models.decoders.dual_lstm import DualLstm
 
 
 def get_model(args, vocab):
@@ -33,6 +34,8 @@ def get_model(args, vocab):
 
     if args.dec_lang_model == "lstm":
         decoder = DecoderRNN(args, vocab)
+    elif args.dec_lang_model == "dual_lstm":
+        decoder = DualLstm(args, vocab)
     else:
         raise ValueError(
             f"Encoder model type {args.dec_lang_model} is not yet supported"
@@ -97,4 +100,5 @@ def get_dataloader(
         pin_memory=False,
         shuffle=shuffle,
         collate_fn=batcher,
+        drop_last=True,
     )
