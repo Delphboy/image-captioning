@@ -12,15 +12,20 @@ from models.decoders.dual_lstm import DualLstm
 
 def get_optim_and_scheduler(args, model):
     if args.enc_model_type == "none":
+
         def _schedule(epoch):
-            m = -(args.learning_rate / args.epochs)
-            return epoch * m + args.learning_rate
-        # optim = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=0.9)
-        optim = torch.optim.Adam(model.parameters(), lr=args.learning_rate, betas=(0.9, 0.98))
+            return 1 - (epoch / args.epochs)
+
+        optim = torch.optim.Adam(
+            model.parameters(), lr=args.learning_rate, betas=(0.9, 0.99)
+        )
         scheduler = torch.optim.lr_scheduler.LambdaLR(optim, lr_lambda=_schedule)
     else:
-        return ValueError(f"There is no scheduler implementation defined for encoder type {args.enc_model_type}")
+        return ValueError(
+            f"There is no scheduler implementation defined for encoder type {args.enc_model_type}"
+        )
     return optim, scheduler
+
 
 def get_model(args, vocab):
     encoder, decoder = None, None
