@@ -162,7 +162,8 @@ class CocoImageGraphDataset(Dataset):
         captions = self.captions[index]
 
         # randomly select a caption from the list of captions
-        caption = "<bos> " + np.random.choice(captions) + " <eos>"
+        # caption = "<bos> " + np.random.choice(captions) + " <eos>"
+        caption = "<bos> " + captions[0] + " <eos>"
         seq = self.vocab.numericalize(caption)
 
         return graph, seq, captions

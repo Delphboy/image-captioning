@@ -19,7 +19,7 @@ from utils.plots import plot_training_charts
 
 import wandb
 
-DEVICE = torch.device("cuda:3" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 print("Setting DEVICE to:", DEVICE)
 
@@ -421,8 +421,9 @@ if __name__ == "__main__":
     )
 
     # Setup optimiser and loss function
-    optim = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
-    scheduler = torch.optim.lr_scheduler.StepLR(optim, 3, 0.8)
+    # optim = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
+    # scheduler = torch.optim.lr_scheduler.StepLR(optim, 3, 0.8)
+    optim, scheduler = factories.get_optim_and_scheduler(args, model)
 
     loss_fn = nn.NLLLoss(ignore_index=vocab.stoi(vocab.get_special_token("pad_token")))
 
@@ -522,8 +523,8 @@ if __name__ == "__main__":
                 use_rl = True
 
                 # load best model
-                model, optim, epoch, patience, best_cider, use_rl = load_model(
-                    model, optim, args, True
+                model, optim, scheduler, epoch, patience, best_cider, use_rl = load_model(
+                    model, optim, scheduler, args, True
                 )
 
                 optim = torch.optim.Adam(model.parameters(), lr=5e-6)
@@ -533,8 +534,8 @@ if __name__ == "__main__":
         print()
 
     # Load best model
-    model, optim, epoch, patience, best_cider, use_rl = load_model(
-        model, optim, args, True
+    model, optim, scheduler, epoch, patience, best_cider, use_rl = load_model(
+        model, optim, scheduler, args, True
     )
 
     # Evaluate on test set

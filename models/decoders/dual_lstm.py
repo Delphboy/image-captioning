@@ -6,17 +6,16 @@ import torch.nn.functional as F
 class Attention(nn.Module):
     def __init__(self, token_dim):
         super(Attention, self).__init__()
-        self.v_att = nn.Linear(2048, token_dim)
-        self.h_att = nn.Linear(token_dim, token_dim)
-        self.a_att = nn.Linear(token_dim, 1)
+        self.v_att = nn.Linear(2048, 512)
+        self.h_att = nn.Linear(token_dim, 512)
+        self.a_att = nn.Linear(512, 1)
         self.tanh = nn.Tanh()
 
     def forward(self, visual_features, attn_out):
         """
         Compute the full attention between the visual features and the hidden state LSTM
         param: visual_features: Tensor[B, X, 2048]
-        param: attn_out: Tensor[B, token_dim]
-        return: Tensor[B, X, 1]
+        param: attn_out: Tensor[B, 1000]
         """
         a_v = self.v_att(visual_features)
         a_h = self.h_att(attn_out).unsqueeze(1)
@@ -37,8 +36,8 @@ class DualLstm(nn.Module):
         self.embedding = nn.Embedding(self.vocab_size, self.token_dim)
         self.max_len = args.max_len
 
-        self.lstm_attn = nn.LSTMCell(self.token_dim * 3, self.token_dim)
-        self.lstm_lang = nn.LSTMCell(self.token_dim * 2, self.token_dim)
+        self.lstm_attn = nn.LSTMCell(self.token_dim * 2 + 2048, self.token_dim)
+        self.lstm_lang = nn.LSTMCell(2048 + self.token_dim, self.token_dim)
         self.full_attn = Attention(self.token_dim)
 
         self.fc = nn.Linear(self.token_dim, self.vocab_size, bias=True)
