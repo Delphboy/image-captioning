@@ -11,20 +11,36 @@ from models.decoders.dual_lstm import DualLstm
 
 
 def get_optim_and_scheduler(args, model):
-    if args.enc_model_type == "none":
-
-        def _schedule(epoch):
-            return 1
-            # return 1 - (epoch / args.epochs)
-
-        optim = torch.optim.Adam(
-            model.parameters(), lr=args.learning_rate
+    optim = None
+    scheduler = None
+    if args.optim == "Adam":
+        optim = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
+    elif args.optim == "AdamW":
+        optim = torch.optim.AdamW(model.parameters(), lr=args.learning_rate)
+    elif args.optim == "SGD":
+        optim = torch.optim.SGD(model.parameters(), lr=args.learning_rate, momentum=0.9)
+    elif args.optim == "RMSProp":
+        optim = torch.optim.RMSprop(
+            model.parameters(), lr=args.learning_rate, momentum=0.9
         )
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optim, lr_lambda=_schedule)
     else:
-        return ValueError(
-            f"There is no scheduler implementation defined for encoder type {args.enc_model_type}"
+        raise ValueError(f"Optimiser type {args.optim} is not supported")
+
+    if args.scheduler == "none":
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optim, lr_lambda=lambda _: 1)
+    elif args.scheduler == "linear":
+        scheduler = torch.optim.lr_scheduler.LambdaLR(
+            optim, lr_lambda=lambda epoch: 1 - (epoch / args.epochs)
         )
+    elif args.scheduler == "step":
+        scheduler = torch.optim.lr_scheduler.StepLR(optim, 5, 0.8)
+    elif args.scheduler == "plateau":
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optim, mode="min", factor=0.8, patience=3
+        )
+    else:
+        raise ValueError(f"Scheduler type {args.scheduler} is not supported")
+
     return optim, scheduler
 
 

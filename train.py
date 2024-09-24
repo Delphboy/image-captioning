@@ -323,7 +323,20 @@ if __name__ == "__main__":
         required=True,
         help="Name of the experiment",
     )
-    parser.add_argument("--warm_up", type=int, default=1, help="Warm up steps")
+    parser.add_argument(
+        "--optim",
+        type=str,
+        default="Adam",
+        help="Which optimiser to user",
+        choices=["Adam", "AdamW", "SGD", "RMSProp"],
+    )
+    parser.add_argument(
+        "--scheduler",
+        type=str,
+        default="step",
+        help="Which LR scheduler to user",
+        choices=["step", "none", "linear", "plateau"],
+    )
     parser.add_argument("--batch_size", type=int, default=32, help="Batch size")
     parser.add_argument("--epochs", type=int, default=20, help="maximum epochs")
     parser.add_argument(
@@ -524,8 +537,8 @@ if __name__ == "__main__":
                 use_rl = True
 
                 # load best model
-                model, optim, scheduler, epoch, patience, best_cider, use_rl = load_model(
-                    model, optim, scheduler, args, True
+                model, optim, scheduler, epoch, patience, best_cider, use_rl = (
+                    load_model(model, optim, scheduler, args, True)
                 )
 
                 optim = torch.optim.Adam(model.parameters(), lr=5e-6)
