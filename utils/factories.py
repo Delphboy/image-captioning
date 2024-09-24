@@ -14,10 +14,11 @@ def get_optim_and_scheduler(args, model):
     if args.enc_model_type == "none":
 
         def _schedule(epoch):
-            return 1 - (epoch / args.epochs)
+            return 1
+            # return 1 - (epoch / args.epochs)
 
         optim = torch.optim.Adam(
-            model.parameters(), lr=args.learning_rate, betas=(0.9, 0.99)
+            model.parameters(), lr=args.learning_rate
         )
         scheduler = torch.optim.lr_scheduler.LambdaLR(optim, lr_lambda=_schedule)
     else:

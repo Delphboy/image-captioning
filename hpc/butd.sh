@@ -19,7 +19,7 @@ module load java/1.8.0_382-openjdk
 
 source .venv/bin/activate
 
-python3 train.py --exp_name "butd-adam-beam5-unrandomised" \
+python3 train.py --exp_name "butd-test" \
 		--captions_file "/data/EECS-YuanLab/COCO/dataset_coco.json" \
 		--butd_root "/data/EECS-YuanLab/COCO/butd_att/" \
 		--sgae_root "/data/EECS-YuanLab/COCO/coco_img_sg/" \
@@ -34,7 +34,7 @@ python3 train.py --exp_name "butd-adam-beam5-unrandomised" \
 		--batch_size 64 \
 		--epochs 34 \
 		--force_rl_after -1 \
-		--learning_rate 0.01 \
+		--learning_rate 5e-4 \
 		--workers 4 \
 		--seed -1 \
 		--patience -1 \

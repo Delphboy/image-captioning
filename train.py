@@ -37,6 +37,7 @@ def train_epoch_xe(
     running_loss = 0.0
 
     desc = "Epoch %d - train" % epoch
+    print(f"Training with LR: {scheduler.get_last_lr()}")
 
     with tqdm(desc=desc, unit="it", total=len(dataloader)) as pbar:
         for it, (input_features, targets, _) in enumerate(dataloader):
