@@ -167,7 +167,7 @@ def evaluate_epoch_xe(model, dataloader, loss_fn, epoch):
 def evaluate_metrics(
     model, dataloader, text_field, epoch, beam_width=5, is_test=False, max_len=30
 ):
-    eos_index = text_field.vocab._stoi[text_field.vocab.get_special_token("eos_token")]
+    eos_index = text_field.vocab.stoi["<eos>"]
     model.eval()
     gen = {}
     gts = {}
@@ -417,19 +417,16 @@ if __name__ == "__main__":
     )
 
     # SCST Things:
-    scst_train_data, _, _ = factories.get_datasets(args)
-    # TODO: Handle the different batch size needed for SCST
-    scst_train_dataloader = factories.get_dataloader(scst_train_data, args)
-    ref_caps_train = list(scst_train_data.text)
+    # TODO: change the batch_size for scst
+    scst_train_dataloader = factories.get_dataloader(train_data, args)
+    ref_caps_train = list(train_data.text)
     cider_train = Cider(PTBTokenizer.tokenize(ref_caps_train))
 
     # Load model
     model = factories.get_model(args, vocab).to(DEVICE)
     wandb.watch(
         model,
-        criterion=nn.NLLLoss(
-            ignore_index=vocab.stoi(vocab.get_special_token("pad_token"))
-        ),
+        criterion=nn.NLLLoss(ignore_index=vocab.stoi["<pad>"]),
         log="all",
         log_freq=10,
     )
@@ -439,7 +436,7 @@ if __name__ == "__main__":
     # scheduler = torch.optim.lr_scheduler.StepLR(optim, 3, 0.8)
     optim, scheduler = factories.get_optim_and_scheduler(args, model)
 
-    loss_fn = nn.NLLLoss(ignore_index=vocab.stoi(vocab.get_special_token("pad_token")))
+    loss_fn = nn.NLLLoss(ignore_index=vocab.stoi["<pad>"])
 
     use_rl = False
     best_cider = 0.0

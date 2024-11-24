@@ -45,49 +45,54 @@ class CocoImageGraphDataset(Dataset):
         self.attribute_node_feat_locations = []
         self.edge_locations = []
         self.captions = []
+        self.training_captions = []
 
         for image_data in self.captions_file_data["images"]:
             if image_data["split"] == "restval":
                 image_data["split"] = "train"
 
             if image_data["split"] == self.split:
-                obj_node_feat_path = os.path.join(
-                    self.butd_root,
-                    f"{image_data['cocoid']}.npz",
-                )
-                attr_node_feat_path = os.path.join(
-                    self.sgae_root,
-                    f"{image_data['cocoid']}.npy",
-                )
-
-                if self.is_semantic:
-                    edge_path = os.path.join(
+                for i in range(5):
+                    obj_node_feat_path = os.path.join(
+                        self.butd_root,
+                        f"{image_data['cocoid']}.npz",
+                    )
+                    attr_node_feat_path = os.path.join(
                         self.sgae_root,
                         f"{image_data['cocoid']}.npy",
                     )
-                else:
-                    edge_path = os.path.join(
-                        self.vsua_root,
-                        f"{image_data['cocoid']}.npy",
-                    )
 
-                caps = [
-                    " ".join(sentence["tokens"]) for sentence in image_data["sentences"]
-                ]
+                    if self.is_semantic:
+                        edge_path = os.path.join(
+                            self.sgae_root,
+                            f"{image_data['cocoid']}.npy",
+                        )
+                    else:
+                        edge_path = os.path.join(
+                            self.vsua_root,
+                            f"{image_data['cocoid']}.npy",
+                        )
 
-                self.object_node_feat_locations.append(obj_node_feat_path)
-                self.attribute_node_feat_locations.append(attr_node_feat_path)
-                self.edge_locations.append(edge_path)
-                self.captions.append(caps)
+                    caps = [
+                        " ".join(sentence["tokens"])
+                        for sentence in image_data["sentences"]
+                    ]
+
+                    self.object_node_feat_locations.append(obj_node_feat_path)
+                    self.attribute_node_feat_locations.append(attr_node_feat_path)
+                    self.edge_locations.append(edge_path)
+                    self.captions.append(caps)
+                    self.training_captions.append(caps[i])
 
         assert (
             len(self.object_node_feat_locations)
             == len(self.attribute_node_feat_locations)
             == len(self.edge_locations)
             == len(self.captions)
+            == len(self.training_captions)
         )
-        self.vocab = Vocab(freq_threshold)
-        self.vocab.build_vocabulary(self.text)
+
+        self.vocab = Vocab(self.captions_file, self.freq_threshold)
 
     def _get_object_nodes(self, index):
         butd_data = np.load(self.object_node_feat_locations[index], allow_pickle=True)[
@@ -199,7 +204,7 @@ class CocoImageGraphDataset(Dataset):
         for wis in word_idxs:
             caption = []
             for wi in wis:
-                word = self.vocab.itos(str(wi.item()))
+                word = self.vocab.itos[str(wi.item())]
                 if word == "<eos>":
                     break
                 if word == "<bos>":

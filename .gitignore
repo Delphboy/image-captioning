@@ -154,3 +154,5 @@ evaluation/meteor/meteor.tgz
 evaluation/spice/tmp/
 evaluation/spice/cache/
 wandb/
+
+image-captioning-checkpoints/

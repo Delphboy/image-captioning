@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 
 from dataset.batching import Batcher, GraphBatcher
 
@@ -60,7 +60,7 @@ def get_model(args, vocab):
         assert args.input_mode == "butd", "Pool encoder does not work with graph inputs"
         encoder = PoolEncoder()
     elif args.enc_model_type == "none":
-        assert args.input_mode == "butd", "Pool encoder does not work with graph inputs"
+        assert args.input_mode == "butd", "encoder=None does not work with graph inputs"
         encoder = NoneEncoder()
     else:
         raise ValueError(
@@ -75,7 +75,7 @@ def get_model(args, vocab):
         raise ValueError(
             f"Encoder model type {args.dec_lang_model} is not yet supported"
         )
-    return CaptioningModel(encoder, decoder, vocab.stoi("<bos>"), args.feature_limit)
+    return CaptioningModel(encoder, decoder, vocab.stoi["<bos>"], args.feature_limit)
 
 
 def get_datasets(args):

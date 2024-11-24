@@ -70,7 +70,7 @@ class DualLstm(nn.Module):
         embeddings = self.embedding(caption)  # [B, X, token_dim]
         v_bar = torch.mean(features, dim=1)
 
-        predictions = []
+        predictions = []  # TODO: Make this a tensor
         for t in range(caption.shape[1]):
             x = torch.cat([h_lang, v_bar, embeddings[:, t, :]], dim=1)
             h_attn, c_attn = self.lstm_attn(x, (h_attn, c_attn))

@@ -1,60 +1,70 @@
 import json
 import os
-from collections import Counter
-from typing import List
 
 
 class Vocab:
-    def __init__(self, freq_threshold):
-        self._itos = {1: "<pad>", 2: "<bos>", 3: "<eos>", 0: "<unk>"}
-        self._stoi = {"<pad>": 1, "<bos>": 2, "<eos>": 3, "<unk>": 0}
+    def __init__(self, dataset_file, freq_threshold, dataset_name="coco"):
+        self.dataset_file = dataset_file
+        self.itos = {1: "<pad>", 2: "<bos>", 3: "<eos>", 0: "<unk>"}
+        self.stoi = {"<pad>": 1, "<bos>": 2, "<eos>": 3, "<unk>": 0}
         self.freq_threshold = freq_threshold
-        self.talk_file_location = "dataset/coco_talk.json"
+        self.talk_file_location = f"data/{dataset_name}_talk.json"
+
+        if os.path.exists(self.talk_file_location):
+            self.load_vocabulary()
+        else:
+            self.build_vocabulary()
+            self.load_vocabulary()
 
     def __len__(self):
-        return len(self._itos)
+        return len(self.itos)
 
-    def get_special_token(self, token: str):
-        specials = {
-            "bos_token": "<bos>",
-            "eos_token": "<eos>",
-            "unk_token": "<unk>",
-            "pad_token": "<pad>",
-        }
-        return specials.get(token, None)
+    def load_vocabulary(self):
+        with open(self.talk_file_location, "r") as f:
+            self.itos = json.load(f)
+            self.stoi = {v: int(k) for k, v in self.itos.items()}
+        print(f"Loaded dictionary with {len(self.itos.items())} words")
+        return
 
-    def build_vocabulary(self, sentence_list):
-        if os.path.exists(self.talk_file_location):
-            with open(self.talk_file_location, "r") as f:
-                self._itos = json.load(f)
-                self._stoi = {v: int(k) for k, v in self._itos.items()}
-            return
-        assert (
-            sentence_list is not None
-        ), "sentence_list must be provided to generate vocab"
-        frequencies = Counter(
-            word for sentence in sentence_list for word in sentence.split(" ")
-        )
-        idx = 4  # idx 1, 2, 3, 0 are already taken (PAD, SOS, EOS, UNK)
-        for word, count in frequencies.items():
-            if count >= self.freq_threshold:
-                self._stoi[word] = int(idx)
-                self._itos[idx] = word
-                idx += 1
+    def build_vocabulary(self):
+        with open(self.dataset_file, "r") as f:
+            karpathy_split = json.load(f)
+
+        captions = []
+        for image_data in karpathy_split["images"]:
+            caps = [
+                " ".join(sentence["tokens"]) for sentence in image_data["sentences"]
+            ]
+            captions.extend(caps)
+
+        print(len(captions))
+
+        caption_dictionary = {}
+        for caption in captions:
+            for word in caption.split(" "):
+                caption_dictionary[word] = caption_dictionary.get(word, 0) + 1
+
+        limited_caption_dictionary = {}
+        for k, v in caption_dictionary.items():
+            if v >= self.freq_threshold:
+                limited_caption_dictionary[k] = v
+
+        for i, k in enumerate(limited_caption_dictionary.keys()):
+            self.stoi[k] = i + 4
+
+        self.itos = {v: k for k, v in self.stoi.items()}
 
         # write self.itos to a json file
+        os.mkdir("data") if not os.path.exists("data") else None
         with open(self.talk_file_location, "w+") as f:
-            json.dump(self._itos, f)
-
-    def stoi(self, token):
-        return self._stoi.get(token, self._stoi[self.get_special_token("unk_token")])
-
-    def itos(self, id):
-        return self._itos.get(id, self._stoi[self.get_special_token("unk_token")])
+            json.dump(self.itos, f)
 
     def numericalize(self, text):
+        # text is a string
+        # we want to return a list of integers
+        # providing a numericalized version of the text
         tokenized_text = text.split(" ")
         return [
-            self._stoi[token] if token in self._stoi else self._stoi["<unk>"]
+            self.stoi[token] if token in self.stoi else self.stoi["<unk>"]
             for token in tokenized_text
         ]

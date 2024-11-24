@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from models.beam_search.beam_search import BeamSearch
 from models.encoders import gnn

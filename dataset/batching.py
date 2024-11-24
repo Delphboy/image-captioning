@@ -27,7 +27,7 @@ class Batcher:
         max_len = max(len(s) for s in seq)
         seq_padded = []
         for s in seq:
-            padded = s + [self.vocab.stoi("<pad>")] * (max_len - len(s))
+            padded = s + [self.vocab.stoi["<pad>"]] * (max_len - len(s))
             seq_padded.append(padded)
 
         seq_padded = torch.LongTensor(seq_padded)
@@ -47,7 +47,7 @@ class GraphBatcher:
         max_len = max(len(s) for s in seq)
         seq_padded = []
         for s in seq:
-            padded = s + [self.vocab.stoi("<pad>")] * (max_len - len(s))
+            padded = s + [self.vocab.stoi["<pad>"]] * (max_len - len(s))
             seq_padded.append(padded)
 
         seq_padded = torch.LongTensor(seq_padded)
