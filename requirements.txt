@@ -1,0 +1,8 @@
+-e ./tinygrad
+numpy
+pyyaml
+pillow
+tqdm
+requests
+pytest
+pycocotools

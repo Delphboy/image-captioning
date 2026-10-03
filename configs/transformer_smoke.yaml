@@ -1,0 +1,24 @@
+# Tiny dims, synthetic data — tests + manual smoke on CPU.
+device: auto
+seed: 42
+model:
+  name: transformer
+  d_model: 32
+  n_heads: 4
+  n_layers: 2
+  d_ff: 64
+  dropout: 0.0
+data:
+  dataset: synthetic
+  num_samples: 64
+  max_cap_len: 16
+pretrain:
+  epochs: 1
+  batch_size: 8
+  lr: 0.001
+  warmup_steps: 10
+  max_steps: 30
+  log_every: 5
+  optim: adamw
+  loss: ce
+  ckpt_dir: checkpoints_smoke  # smoke never collides with a real run's checkpoints (L0-02)

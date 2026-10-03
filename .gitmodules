@@ -1,0 +1,6 @@
+[submodule "tinygrad"]
+	path = tinygrad
+	url = https://github.com/tinygrad/tinygrad
+[submodule "coco-caption"]
+	path = coco-caption
+	url = https://github.com/Delphboy/coco-caption/

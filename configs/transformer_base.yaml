@@ -1,0 +1,35 @@
+# Real BUTD COCO config (points outside the repo — data must exist locally).
+device: auto
+seed: 1
+experiment: butd_base
+model:
+  name: transformer
+  d_model: 512
+  n_heads: 8
+  n_layers: 6
+  d_ff: 2048
+  dropout: 0.1
+data:
+  dataset: butd
+  annotations_path: /home/henry/Datasets/coco/dataset_coco.json
+  features_dir: /home/henry/Datasets/coco/butd_att
+  max_cap_len: 21
+  vocab_min_freq: 5
+pretrain:
+  epochs: 1
+  batch_size: 2
+  lr: 0.0001
+  warmup_steps: 2000
+  learning_rate_decay_start: 0
+  learning_rate_decay_rate: 0.8
+  learning_rate_decay_every: 3
+  max_steps: null
+  log_every: 10
+  optim: adamw
+  loss: ce
+  ckpt_dir: checkpoints
+eval:
+  every_steps: 1000
+  beam_width: 3
+  batch_size: 64
+  max_samples: null

@@ -156,3 +156,6 @@ evaluation/spice/cache/
 wandb/
 
 image-captioning-checkpoints/
+checkpoints/
+cache/
+.rpiv/
